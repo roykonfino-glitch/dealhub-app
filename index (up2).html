@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DealHub Discovery</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a1628;color:#e8f0fe;font-size:14px}
+:root{--bg:#0a1628;--card:#0f1f38;--border:#1e3a5f;--primary:#3de8b0;--text:#e8f0fe;--muted:#7a9bc4;--accent:#1a3d2e}
+.hdr{background:var(--card);border-bottom:1px solid var(--border);padding:14px 28px;position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-mark{width:36px;height:36px;background:var(--primary);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:16px;color:#0a1628}
+.logo-text{font-size:16px;font-weight:800}
+.logo-text span{color:var(--primary)}
+.logo-sub{font-size:11px;color:var(--muted);margin-top:1px}
+.hdr-co{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.hdr-co input{background:#0a1628;border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 10px;font-size:12px;outline:none;width:170px}
+.hdr-co input:focus{border-color:var(--primary)}
+.prog{background:#080f1e;border-bottom:1px solid var(--border);padding:0 28px;display:flex;overflow-x:auto}
+.prog::-webkit-scrollbar{height:0}
+.ps{display:flex;align-items:center;gap:8px;padding:10px 14px 10px 0;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap;flex-shrink:0}
+.ps+.ps{padding-left:14px}
+.ps.active .pl{color:var(--primary)}.ps.active{border-bottom-color:var(--primary)}
+.ps.done .pl{color:#34d399}.ps.done{border-bottom-color:#34d399}
+.pn{width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,.07);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--muted);flex-shrink:0}
+.ps.active .pn{background:var(--primary);color:#0a1628}
+.ps.done .pn{background:#34d399;color:#0a1628}
+.pl{font-size:12px;font-weight:600;color:var(--muted)}
+.pa{color:var(--border);font-size:11px;margin-left:8px}
+.page{display:grid;grid-template-columns:1fr 300px;min-height:calc(100vh - 98px)}
+.content{padding:28px;max-width:740px}
+.aside{background:#080f1e;border-left:1px solid var(--border);padding:16px;display:flex;flex-direction:column}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:16px}
+.ptitle{font-size:22px;font-weight:800;margin-bottom:6px;line-height:1.2}
+.ptitle em{color:var(--primary);font-style:normal}
+.psub{font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:24px;max-width:580px}
+.slbl{font-size:10px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.9px;margin-bottom:7px;margin-top:18px}
+.slbl:first-child{margin-top:0}
+.shint{font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:10px}
+.inp{background:#0a1628;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 12px;font-size:13px;width:100%;outline:none;transition:border .15s}
+.inp:focus{border-color:var(--primary)}
+.inp::placeholder{color:var(--muted)}
+.sel{background:#0a1628;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 10px;font-size:13px;width:100%;outline:none;cursor:pointer}
+.ta{background:#0a1628;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:10px 12px;font-size:13px;width:100%;resize:vertical;outline:none;font-family:inherit;line-height:1.6}
+.ta:focus{border-color:var(--primary)}
+.ta::placeholder{color:var(--muted)}
+.lbl{font-size:11px;color:var(--muted);display:block;margin-bottom:5px;font-weight:500}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.hr{border:none;border-top:1px solid var(--border);margin:20px 0}
+.btn{border:1px solid var(--border);background:transparent;color:var(--text);border-radius:8px;padding:9px 16px;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s;font-weight:500}
+.btn:hover{border-color:var(--primary);color:var(--primary)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn-p{background:var(--primary);border-color:var(--primary);color:#0a1628;font-weight:700}
+.btn-p:hover{opacity:.9;color:#0a1628}
+.btn-sm{padding:5px 10px;font-size:11px}
+.btn-d{color:#f87171;border-color:#3a1f1f;padding:5px 10px;font-size:11px}
+.btn-d:hover{background:#1a0a0a;border-color:#f87171}
+.btn-ai{background:linear-gradient(135deg,#0f2a1e,#0d2137);border:1px solid var(--primary);color:var(--primary);font-weight:600}
+.btn-ai:hover{background:var(--accent)}
+.uc-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.uc{background:#0a1628;border:1.5px solid var(--border);border-radius:10px;padding:14px;cursor:pointer;transition:all .18s;user-select:none}
+.uc:hover{border-color:var(--muted)}
+.uc.on{border-color:var(--primary);background:rgba(61,232,176,.04)}
+.uc-top{display:flex;align-items:flex-start;gap:10px}
+.uc-ico{font-size:20px;flex-shrink:0;width:28px;text-align:center}
+.uc-inf{flex:1}
+.uc-n{font-size:13px;font-weight:600;margin-bottom:3px}
+.uc-d{font-size:11px;color:var(--muted);line-height:1.4}
+.uc-ck{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;transition:all .18s;margin-top:1px}
+.uc.on .uc-ck{background:var(--primary);border-color:var(--primary);color:#0a1628}
+.uc-det{margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+.uc-det-lbl{font-size:10px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px}
+.sw{position:relative;width:38px;height:21px;flex-shrink:0}
+.sw input{opacity:0;width:0;height:0}
+.sw-t{position:absolute;cursor:pointer;inset:0;background:#1a2d4a;border-radius:21px;transition:.2s;border:1px solid var(--border)}
+.sw-t:before{content:'';position:absolute;width:15px;height:15px;left:2px;bottom:2px;background:var(--muted);border-radius:50%;transition:.2s}
+input:checked+.sw-t{background:var(--accent);border-color:var(--primary)}
+input:checked+.sw-t:before{transform:translateX(17px);background:var(--primary)}
+.dz{border:2px dashed var(--border);border-radius:10px;padding:22px;text-align:center;cursor:pointer;transition:all .2s}
+.dz:hover,.dz.ov{border-color:var(--primary);background:rgba(61,232,176,.03)}
+.fok{background:rgba(61,232,176,.06);border:1.5px solid rgba(61,232,176,.4);border-radius:10px;padding:13px;display:flex;align-items:center;justify-content:space-between}
+.insight{background:var(--accent);border:1px solid rgba(61,232,176,.2);border-radius:8px;padding:12px 14px;font-size:12px;color:var(--text);line-height:1.6;margin-top:12px}
+.insight strong{color:var(--primary)}
+.etbl{width:100%;border-collapse:collapse;font-size:11px;margin-top:10px}
+.etbl th{background:#080f1e;color:var(--muted);padding:6px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;border-bottom:1px solid var(--border)}
+.etbl td{padding:5px 7px;border-bottom:1px solid rgba(30,58,95,.4)}
+.etbl input{background:transparent;border:none;color:var(--text);font-size:11px;width:100%;outline:none;padding:2px 3px}
+.etbl input:focus{background:#0a1628;border-radius:4px}
+.ai-wrap{display:flex;flex-direction:column;height:100%;min-height:calc(100vh - 130px)}
+.ai-hdr{display:flex;align-items:center;gap:7px;margin-bottom:10px;flex-shrink:0}
+.ai-ttl{font-size:12px;font-weight:700;color:var(--primary)}
+.ai-stag{font-size:10px;color:var(--muted);background:#0a1628;border:1px solid var(--border);border-radius:10px;padding:2px 8px;margin-left:auto}
+.ai-msgs{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:7px;margin-bottom:10px}
+.ai-msgs::-webkit-scrollbar{width:3px}
+.ai-msgs::-webkit-scrollbar-thumb{background:var(--border)}
+.ai-b{background:var(--accent);border:1px solid rgba(61,232,176,.12);border-radius:8px 8px 8px 2px;padding:9px 11px;font-size:11px;line-height:1.65}
+.ai-b strong{color:var(--primary)}
+.usr-b{background:#1a2d4a;border-radius:8px 8px 2px 8px;padding:9px 11px;font-size:11px;align-self:flex-end;text-align:right;max-width:90%}
+.ai-typ{display:flex;gap:4px;padding:9px 11px;background:var(--accent);border-radius:8px 8px 8px 2px;width:fit-content}
+.dot{width:5px;height:5px;border-radius:50%;background:var(--primary);animation:bop 1.2s infinite}
+.dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
+@keyframes bop{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid rgba(61,232,176,.3);border-top-color:var(--primary);border-radius:50%;animation:spin .7s linear infinite}
+.spin-dk{border-color:rgba(0,0,0,.15);border-top-color:#0a1628}
+.ai-row{display:flex;gap:6px;flex-shrink:0}
+.ai-in{flex:1;background:#0a1628;border:1px solid var(--border);color:var(--text);border-radius:6px;padding:7px 10px;font-size:11px;outline:none;font-family:inherit}
+.ai-in:focus{border-color:var(--primary)}
+.ai-snd{background:var(--primary);border:none;border-radius:6px;padding:7px 11px;color:#0a1628;font-size:11px;font-weight:700;cursor:pointer}
+.rev-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}
+.rev-c{background:#0a1628;border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center}
+.rev-n{font-size:26px;font-weight:800;color:var(--primary)}
+.rev-l{font-size:11px;color:var(--muted);margin-top:3px}
+.gen-c{border-radius:12px;padding:18px;margin-bottom:12px}
+.badge{display:inline-flex;align-items:center;background:var(--accent);color:var(--primary);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:600}
+.footer{border-top:1px solid var(--border);background:var(--card);padding:11px 28px;display:flex;justify-content:space-between;align-items:center;position:sticky;bottom:0;z-index:15}
+.done-sc{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;text-align:center;min-height:360px}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="hdr">
+  <div class="logo">
+    <div class="logo-mark">D</div>
+    <div><div class="logo-text">DealHub <span>Discovery</span></div><div class="logo-sub">Post-overview configuration questionnaire</div></div>
+  </div>
+  <div class="hdr-co">Company: <input id="coInp" placeholder="Your company name" oninput="st.co=this.value"></div>
+</div>
+<div class="prog" id="prog"></div>
+<div class="page">
+  <div class="content" id="content"></div>
+  <div class="aside">
+    <div class="ai-wrap">
+      <div class="ai-hdr"><span style="font-size:16px">🤖</span><span class="ai-ttl">DealHub AI Advisor</span><span class="ai-stag" id="aiTag">Step 1</span></div>
+      <div class="ai-msgs" id="aiMsgs"></div>
+      <div class="ai-row"><input class="ai-in" id="aiIn" placeholder="Ask me anything…" onkeydown="if(event.key==='Enter')sendAI()"><button class="ai-snd" onclick="sendAI()">↗</button></div>
+    </div>
+  </div>
+</div>
+<div class="footer" id="footer"></div>
+</div>
+
+<script>
+const PX='https://dealhub-proxy.vercel.app/api/chat';
+const uid=()=>Math.random().toString(36).slice(2,8);
+const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+const STEPS=[{id:'about',label:'About You',e:'🏢'},{id:'products',label:'Your Products',e:'📦'},{id:'selling',label:'How You Sell',e:'💡'},{id:'rules',label:'Quoting Rules',e:'📋'},{id:'review',label:'Review & Generate',e:'🚀'}];
+
+const UCS=[
+  {k:'multiyear',i:'📅',n:'Multi-Year Contracts',d:'You sell deals spanning 2+ years, sometimes with different pricing each year.',q:'How does pricing change year-over-year? Same rate with annual uplift (CPI %), or fully custom pricing per year?'},
+  {k:'ramp',i:'📈',n:'Ramp-Up Pricing',d:'Customers start small and scale up — the price follows the ramp schedule.',q:'What does a typical ramp look like? e.g. 50 users Yr1, 100 Yr2. Is total commitment (TCV) locked at signing?'},
+  {k:'partners',i:'🤝',n:'Partner & Reseller Deals',d:'You sell through partners or resellers who receive different pricing.',q:'Do partners get a flat discount tier or deal-by-deal? Should their discount pull automatically from your CRM?'},
+  {k:'trials',i:'🧪',n:'Trials & Pilots',d:'You offer free or discounted pilots before the paid contract begins.',q:'How long do trials typically run? Do they auto-convert to paid, or does the rep create a new quote?'},
+  {k:'overage',i:'📊',n:'Usage & Overages',d:'Customers have a usage limit — exceeding it triggers an overage charge.',q:'Is overage billed monthly in arrears or at contract end? Any grace buffer before overage kicks in?'},
+  {k:'optional',i:'➕',n:'Optional Add-Ons',d:'Quotes include optional products the customer chooses to include or skip.',q:'Are optional add-ons visible to the buyer in DealRoom, or only visible to the rep building the quote?'},
+  {k:'cpi',i:'📆',n:'Annual Price Increases',d:'Contracts include an automatic annual uplift — fixed % or tied to CPI.',q:'What is your default uplift rate? Can reps waive it, or does that require approval?'},
+  {k:'redline',i:'⚖️',n:'Contract Redlining',d:'Customers negotiate changes to your standard contract or MSA terms.',q:'Which documents get redlined most — MSA, Order Form, or both? Handled in DealHub or outside?'},
+  {k:'integrations',i:'🔌',n:'Integrations',d:'DealHub connects with other tools — CRM is always required plus any others.',q:'Which are must-haves for go-live? DocuSign for e-signature, Slack for approval notifications, SSO?'},
+  {k:'custom',i:'🍒',n:'Custom Deal Structures',d:'Some deals need a hand-built product selection by RevOps or Deal Desk.',q:'How often does this happen? Who has permission — only RevOps, or can AEs request it too?'},
+];
+
+function freshSt(){return{step:0,submitted:false,co:'',industry:'',crm:'Salesforce',dealVolume:'',dealSize:'',goLive:'',addCtx:'',skuFile:'',skuCount:0,skus:[],multiCurrency:false,currencies:'',productInsight:'',productInsightLoading:false,useCases:UCS.map(u=>({...u,id:uid(),on:false,detail:''})),sellingFlow:'',approvalText:'',approvalRows:[],ruleRows:[],extractLoading:false,extractErr:'',payTerms:'',netDays:'',autoRenew:'',msa:'',otherTerms:'',docGenerating:false,docError:'',mmGenerating:false,mmError:''};}
+let st=freshSt();
+
+let aiMs=[{r:'ai',h:'👋 Hi! I\'m your <strong>DealHub AI Advisor</strong>. I\'m built with deep DealHub platform knowledge — I\'ll guide you through each step and help translate your answers into a configuration design document. Start with <strong>About You</strong> when ready.'}];
+let aiLoading=false,aiSeen=new Set();
+
+const INTROS=[null,'You\'re on <strong>Your Products</strong>. Upload your catalog and I\'ll instantly analyse the structure — product families, pricing models, billing types — so your design document is as accurate as possible.','Now for <strong>How You Sell</strong>. Select every scenario that fits. When you enable one, a question appears about how it specifically works at your company — those answers directly shape the DealHub playbook configuration.','For <strong>Quoting Rules</strong> — just describe your approval process naturally. Something like <em>"deals over $50K need VP approval"</em> is perfect. I\'ll extract the discount matrix and rule-based workflows automatically.','You\'re at the <strong>Review</strong> step! Click <strong>Generate Design Document</strong> — I\'ll produce a full DealHub configuration spec including question groups, approval matrices, playbook structure, and a recommended build sequence. Takes about 20 seconds.'];
+
+function triggerIntro(s){if(aiSeen.has(s)||!INTROS[s])return;aiSeen.add(s);setTimeout(()=>pushAI(INTROS[s]),500);}
+function pushAI(h){aiMs.push({r:'ai',h});drawAI();}
+function drawAI(){
+  const el=document.getElementById('aiMsgs');if(!el)return;
+  el.innerHTML=aiMs.map(m=>m.r==='ai'?`<div class="ai-b">${m.h}</div>`:`<div class="usr-b">${esc(m.text||'')}</div>`).join('');
+  if(aiLoading)el.innerHTML+=`<div class="ai-typ"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`;
+  el.scrollTop=el.scrollHeight;
+  const t=document.getElementById('aiTag');if(t)t.textContent=`Step ${st.step+1} — ${STEPS[st.step]?.label}`;
+}
+function aiSys(){
+  const en=st.useCases.filter(u=>u.on).map(u=>u.n);
+  return `You are a friendly, expert DealHub CPQ onboarding advisor. The client has already had a DealHub overview session.
+Context: Company: ${st.co||'unknown'} | Industry: ${st.industry||'unknown'} | CRM: ${st.crm} | Products: ${st.skuCount} SKUs | Use cases: ${en.join(', ')||'none yet'} | Step: ${STEPS[st.step]?.label}
+Be warm, concise — 2-3 sentences max. Ask ONE focused question. Light DealHub terminology is fine. Reassure them their answers feed directly into the configuration design document.`;
+}
+async function sendAI(){
+  const inp=document.getElementById('aiIn');const txt=(inp?.value||'').trim();if(!txt||aiLoading)return;
+  inp.value='';aiMs.push({r:'user',text:txt});aiLoading=true;drawAI();
+  const msgs=aiMs.map(m=>({role:m.r==='ai'?'assistant':'user',content:m.h?m.h.replace(/<[^>]+>/g,''):m.text||''}));
+  try{const res=await fetch(PX,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:200,system:aiSys(),messages:msgs})});const d=await res.json();pushAI(d.error?`⚠️ ${d.error.message}`:(d.content?.[0]?.text||'').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>'));}catch(e){pushAI('⚠️ Could not reach advisor.');}
+  aiLoading=false;drawAI();
+}
+
+function render(){
+  drawProg();
+  if(st.submitted){renderDone();drawFooter();return;}
+  const fns=[S1,S2,S3,S4,S5];
+  document.getElementById('content').innerHTML=`<div>${(fns[st.step]||S1)()}</div>`;
+  drawFooter();drawAI();setTimeout(()=>triggerIntro(st.step),400);
+}
+
+function drawProg(){
+  document.getElementById('prog').innerHTML=STEPS.map((s,i)=>{
+    const cls=i===st.step?'active':i<st.step?'done':'';
+    return `<div class="ps ${cls}" onclick="goStep(${i})"><span class="pn">${i<st.step?'✓':i+1}</span><span class="pl">${s.e} ${s.label}</span>${i<STEPS.length-1?'<span class="pa">›</span>':''}</div>`;
+  }).join('');
+}
+function drawFooter(){
+  const last=st.step===STEPS.length-1;
+  document.getElementById('footer').innerHTML=`<button class="btn" onclick="prevStep()" ${st.step===0?'disabled':''}>← Back</button><span style="font-size:11px;color:var(--muted)">${st.step+1} / ${STEPS.length}</span>${last?`<button class="btn btn-p" onclick="submitForm()">Submit ✓</button>`:`<button class="btn btn-p" onclick="nextStep()">Continue →</button>`}`;
+}
+function goStep(i){st.step=i;render();window.scrollTo(0,0);}
+function nextStep(){if(st.step<STEPS.length-1){st.step++;render();window.scrollTo(0,0);}}
+function prevStep(){if(st.step>0){st.step--;render();}}
+function submitForm(){st.submitted=true;render();}
+
+function S1(){return `<div class="card"><div class="ptitle">Tell us about <em>your business</em></div><div class="psub">A few quick questions to set the context for your DealHub configuration. These feed directly into the design document your team will use to build.</div><div class="g2" style="margin-bottom:12px"><div><label class="lbl">What industry are you in?</label><input class="inp" placeholder="e.g. SaaS, InsurTech, Cybersecurity…" value="${esc(st.industry)}" oninput="st.industry=this.value"></div><div><label class="lbl">What CRM do you use?</label><select class="sel" onchange="st.crm=this.value">${['Salesforce','HubSpot','Microsoft Dynamics','Other'].map(v=>`<option${st.crm===v?' selected':''}>${v}</option>`).join('')}</select></div></div><div class="g2" style="margin-bottom:12px"><div><label class="lbl">How many deals per month?</label><select class="sel" onchange="st.dealVolume=this.value">${['','Under 10','10–50','50–200','200+'].map(v=>`<option value="${v}"${st.dealVolume===v?' selected':''}>${v||'Select…'}</option>`).join('')}</select></div><div><label class="lbl">Typical deal size?</label><select class="sel" onchange="st.dealSize=this.value">${['','Under $10K','$10K–$50K','$50K–$200K','$200K+'].map(v=>`<option value="${v}"${st.dealSize===v?' selected':''}>${v||'Select…'}</option>`).join('')}</select></div></div><div style="margin-bottom:12px"><label class="lbl">Target go-live date for DealHub</label><input class="inp" placeholder="e.g. Q3 2026 or July 2026" value="${esc(st.goLive)}" oninput="st.goLive=this.value"></div><div class="hr"></div><label class="lbl">Anything else to help us understand your business?</label><div class="shint" style="margin-bottom:8px">Team size, current quoting process, pain points, or goals — whatever feels relevant.</div><textarea class="ta" rows="3" placeholder="e.g. 150-person SaaS company. Reps build quotes manually in Google Sheets. Goal: same-day quoting for standard deals…" oninput="st.addCtx=this.value">${esc(st.addCtx)}</textarea></div>`;}
+
+function S2(){
+  const up=st.skuFile?`<div class="fok" style="margin-bottom:14px"><div style="display:flex;align-items:center;gap:10px"><span style="font-size:22px">✅</span><div><div style="font-size:13px;font-weight:600">${esc(st.skuFile)}</div><div style="font-size:11px;color:var(--muted);margin-top:1px">${st.skuCount} products loaded</div></div></div><button class="btn btn-d" onclick="clearSku()">Remove</button></div>`:
+  `<div class="dz" id="dz" onclick="document.getElementById('skuFI').click()" ondragover="event.preventDefault();this.classList.add('ov')" ondragleave="this.classList.remove('ov')" ondrop="this.classList.remove('ov');handleDrop(event)" style="margin-bottom:14px"><input type="file" id="skuFI" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFile(this)"><div style="font-size:28px;margin-bottom:8px">📊</div><div style="font-size:13px;font-weight:600;margin-bottom:4px">Upload your product catalog</div><div style="font-size:12px;color:var(--muted)">Drag & drop or click — Excel or CSV</div><div style="font-size:11px;color:var(--muted);margin-top:4px">Typical columns: SKU, Name, Description, Type, Price, UoM</div><div id="skuMsg" style="margin-top:8px;font-size:12px"></div></div>`;
+  const ins=st.productInsightLoading?`<div class="insight"><div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)"><span class="spin"></span> Analysing your product catalog…</div></div>`:st.productInsight?`<div class="insight"><strong>📊 AI Product Analysis:</strong><br>${st.productInsight}</div>`:'';
+  const prev=st.skus.length?`<div style="margin-bottom:14px;overflow-x:auto"><div class="slbl">Product Preview</div><table class="etbl" style="margin-top:6px"><thead><tr>${Object.keys(st.skus[0]).filter(k=>k!=='id').slice(0,5).map(k=>`<th>${esc(k)}</th>`).join('')}</tr></thead><tbody>${st.skus.slice(0,6).map(s=>`<tr>${Object.entries(s).filter(([k])=>k!=='id').slice(0,5).map(([,v])=>`<td style="font-size:11px">${esc(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:'';
+  return `<div class="card"><div class="ptitle">Your <em>product catalog</em></div><div class="psub">Upload your product list — this is the foundation for your DealHub quote configuration. Don't worry if it's not 100% finalised yet.</div>${up}${ins}${prev}<div class="hr"></div><label class="lbl">Do you quote in multiple currencies?</label><div style="display:flex;align-items:center;gap:10px;margin-bottom:${st.multiCurrency?'10px':'0'}"><label class="sw"><input type="checkbox"${st.multiCurrency?' checked':''} onchange="st.multiCurrency=this.checked;render()"><span class="sw-t"></span></label><span style="font-size:13px;color:var(--muted)">${st.multiCurrency?'Yes — multiple currencies':'No — single currency only'}</span></div>${st.multiCurrency?`<input class="inp" placeholder="Which currencies? e.g. USD, EUR, GBP" value="${esc(st.currencies)}" oninput="st.currencies=this.value">`:''}</div>`;
+}
+
+function S3(){
+  const en=st.useCases.filter(u=>u.on);
+  const cards=st.useCases.map(u=>`<div class="uc${u.on?' on':''}" onclick="toggleUC('${u.id}')"><div class="uc-top"><span class="uc-ico">${u.i}</span><div class="uc-inf"><div class="uc-n">${esc(u.n)}</div><div class="uc-d">${esc(u.d)}</div></div><span class="uc-ck">${u.on?'✓':''}</span></div>${u.on?`<div class="uc-det"><div class="uc-det-lbl">${esc(u.n)} at ${esc(st.co||'your company')}</div><textarea class="ta" rows="2" style="font-size:12px;min-height:54px" placeholder="${esc(u.q)}" onclick="event.stopPropagation()" oninput="updUC('${u.id}',this.value)">${esc(u.detail)}</textarea></div>`:''}</div>`).join('');
+  return `<div class="card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:8px"><div class="ptitle">How do you <em>sell?</em></div>${en.length?`<span class="badge">✓ ${en.length} selected`+'</span>':''}</div><div class="psub">Select every scenario that applies. When you enable one, a question appears about how it works specifically at your company — those answers directly shape the DealHub playbook.</div><div class="uc-grid">${cards}</div><div class="hr"></div><div class="slbl">Walk us through a typical deal</div><div class="shint" style="margin-bottom:8px">From the moment a rep creates a quote to when it's sent to the customer — describe the journey. The more detail, the better.</div><textarea class="ta" rows="5" placeholder="e.g. Our AE creates a quote from a Salesforce opportunity. They choose the platform tier and number of seats. If they're giving more than 15% discount, their manager needs to approve it. Legal reviews any non-standard MSA terms. Once approved, we send via DocuSign…" oninput="st.sellingFlow=this.value">${esc(st.sellingFlow)}</textarea></div>`;
+}
+
+function toggleUC(id){
+  st.useCases=st.useCases.map(u=>u.id===id?{...u,on:!u.on}:u);
+  const u=st.useCases.find(u=>u.id===id);
+  if(u?.on){const msgs={'Multi-Year Contracts':'<strong>Multi-Year</strong> enabled. In DealHub, multi-year deals use separate pricing sections per year. Does pricing change year-over-year, or is it flat with an annual uplift %?','Ramp-Up Pricing':'<strong>Ramp-Up</strong> enabled. DealHub uses a quantity ramp table per term. Is the total commitment (TCV) locked at signing even as quantities ramp?','Partner & Reseller Deals':'<strong>Partners</strong> enabled. DealHub supports separate price books per tier. Do partners have deal registration, and should their discount auto-pull from your CRM?','Trials & Pilots':'<strong>Trials</strong> enabled. In DealHub these are typically a complementary period flag — no separate line items. Does the trial period appear on the Order Form?','Usage & Overages':'<strong>Overages</strong> enabled. DealHub tracks usage as a question field. Is overage billed monthly or settled at contract end?','Annual Price Increases':'<strong>Annual uplift</strong> enabled. DealHub configures this as a renewal price cap field. What\'s the default rate and can reps waive it?','Integrations':'<strong>Integrations</strong> — CRM is always required. What else? DocuSign for e-signature, Slack for approval notifications, SSO?'};
+  pushAI(msgs[u.n]||`<strong>${u.n}</strong> enabled — tell me more about how this works in your current sales process.`);}
+  render();
+}
+function updUC(id,v){st.useCases=st.useCases.map(u=>u.id===id?{...u,detail:v}:u);}
+
+function S4(){
+  const has=st.approvalRows.length>0||st.ruleRows.length>0;
+  const matTbl=st.approvalRows.length?`<div style="margin-top:12px"><div class="slbl">Discount Approval Matrix <span style="font-weight:400;color:var(--muted);text-transform:none;font-size:10px;letter-spacing:0">— review & edit</span></div><table class="etbl"><thead><tr><th>Role</th><th>Can Discount Up To</th><th>Their Approver</th><th></th></tr></thead><tbody>${st.approvalRows.map((r,i)=>`<tr><td><input value="${esc(r.role)}" oninput="st.approvalRows[${i}].role=this.value"></td><td><input value="${esc(r.max)}" oninput="st.approvalRows[${i}].max=this.value" style="width:70px"></td><td><input value="${esc(r.approver)}" oninput="st.approvalRows[${i}].approver=this.value"></td><td><button class="btn btn-d" style="padding:2px 6px;font-size:10px" onclick="st.approvalRows.splice(${i},1);render()">✕</button></td></tr>`).join('')}</tbody></table><button class="btn btn-sm" style="margin-top:6px" onclick="st.approvalRows.push({role:'',max:'',approver:''});render()">+ Add tier</button></div>`:'';
+  const ruleTbl=st.ruleRows.length?`<div style="margin-top:14px"><div class="slbl">Rule-Based Workflows <span style="font-weight:400;color:var(--muted);text-transform:none;font-size:10px;letter-spacing:0">— review & edit</span></div><table class="etbl"><thead><tr><th>Condition</th><th>Approver Step 1</th><th>Step 2 (optional)</th><th></th></tr></thead><tbody>${st.ruleRows.map((r,i)=>`<tr><td><input value="${esc(r.rule)}" oninput="st.ruleRows[${i}].rule=this.value" style="width:100%"></td><td><input value="${esc(r.step1)}" oninput="st.ruleRows[${i}].step1=this.value"></td><td><input value="${esc(r.step2||'')}" oninput="st.ruleRows[${i}].step2=this.value" placeholder="Optional"></td><td><button class="btn btn-d" style="padding:2px 6px;font-size:10px" onclick="st.ruleRows.splice(${i},1);render()">✕</button></td></tr>`).join('')}</tbody></table><button class="btn btn-sm" style="margin-top:6px" onclick="st.ruleRows.push({rule:'',step1:'',step2:''});render()">+ Add rule</button></div>`:'';
+  return `<div class="card"><div class="ptitle">Your <em>quoting rules</em></div><div class="psub">Describe your approval process and deal terms in plain English. DealHub AI will automatically structure them into the approval workflows and terms configuration.</div><div style="background:#0a1628;border:1.5px solid var(--primary);border-radius:10px;padding:16px;margin-bottom:20px"><div class="slbl" style="margin-top:0">Describe your approval process</div><div class="shint" style="margin-bottom:8px">Who approves what and at what thresholds? What triggers a non-standard review?</div><textarea class="ta" rows="5" style="margin-bottom:12px" placeholder="e.g. AEs can discount up to 10% without approval. Above 10% needs their manager. Above 25% goes to VP Sales. Legal must approve any MSA changes. Finance approves anything beyond Net 30. If start date is more than 30 days out, Deal Desk reviews it…" oninput="st.approvalText=this.value">${esc(st.approvalText)}</textarea><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><button class="btn btn-ai" onclick="extractApprovals()" ${st.extractLoading?'disabled':''} style="font-size:12px">${st.extractLoading?'<span class="spin spin-dk"></span> Extracting…':'🤖 Extract Approval Rules'}</button>${has?`<span style="font-size:11px;color:var(--muted)">✓ ${st.approvalRows.length} tiers · ${st.ruleRows.length} rules</span>`:''}</div>${st.extractErr?`<div style="margin-top:8px;font-size:11px;color:#f87171">⚠️ ${esc(st.extractErr)}</div>`:''} ${matTbl}${ruleTbl}</div><div class="slbl">Commercial terms</div><div class="shint" style="margin-bottom:10px">These become configurable fields in your DealHub playbook. Answer in plain English.</div><div class="g2" style="margin-bottom:10px"><div><label class="lbl">How do customers typically pay?</label><input class="inp" placeholder="e.g. Annual upfront, monthly, quarterly…" value="${esc(st.payTerms)}" oninput="st.payTerms=this.value"></div><div><label class="lbl">Standard payment terms (net days)?</label><input class="inp" placeholder="e.g. Net 30 (default), Net 45, Net 60…" value="${esc(st.netDays)}" oninput="st.netDays=this.value"></div><div><label class="lbl">Do contracts auto-renew?</label><input class="inp" placeholder="e.g. Yes, 30-day opt-out window…" value="${esc(st.autoRenew)}" oninput="st.autoRenew=this.value"></div><div><label class="lbl">Do you use a Master Service Agreement?</label><input class="inp" placeholder="e.g. Yes, for enterprise deals over $50K…" value="${esc(st.msa)}" oninput="st.msa=this.value"></div></div><label class="lbl">Any other commercial terms to note?</label><input class="inp" placeholder="e.g. Cashback options, marketplace transactions, alternate T&Cs…" value="${esc(st.otherTerms)}" oninput="st.otherTerms=this.value"></div>`;
+}
+
+async function extractApprovals(){
+  const txt=(st.approvalText||'').trim();if(!txt){alert('Describe your approval process first.');return;}
+  st.extractLoading=true;st.extractErr='';render();
+  const sys=`You are a DealHub CPQ architect. Extract approval workflow configuration from a description. Return ONLY valid JSON, no markdown.
+{"matrix":[{"role":"...","max":"e.g. 10%","approver":"..."}],"rules":[{"rule":"DealHub-style condition e.g. If Payment Terms != Net 30","step1":"approver name or role","step2":"optional second approver or empty string"}]}
+For matrix: list from lowest to highest authority. max is their discount ceiling as a % string.
+For rules: condition phrased as DealHub would configure it. steps are approver names/roles.`;
+  try{
+    const res=await fetch(PX,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:700,system:sys,messages:[{role:'user',content:txt}]})});
+    const d=await res.json();
+    if(d.error){st.extractErr=d.error.message;}
+    else{const p=JSON.parse((d.content?.[0]?.text||'{}').replace(/```json|```/g,'').trim());if(p.matrix?.length)st.approvalRows=p.matrix.map(r=>({role:r.role||'',max:r.max||'',approver:r.approver||''}));if(p.rules?.length)st.ruleRows=p.rules.map(r=>({rule:r.rule||'',step1:r.step1||'',step2:r.step2||''}));pushAI(`Extracted <strong>${st.approvalRows.length} discount tiers</strong> and <strong>${st.ruleRows.length} rule-based workflow${st.ruleRows.length!==1?'s':''}</strong>. Scroll down to review — check approver names and % thresholds match your team exactly.`);}
+  }catch(e){st.extractErr='Could not reach AI.';}
+  st.extractLoading=false;render();
+}
+
+function S5(){
+  const en=st.useCases.filter(u=>u.on);
+  const stats=[{n:st.industry||'—',l:'Industry',i:'🏢'},{n:st.skuCount||'—',l:'Products',i:'📦'},{n:en.length,l:'Use Cases',i:'💡'},{n:st.approvalRows.length,l:'Approval Tiers',i:'🛡️'},{n:st.ruleRows.length,l:'Rule Workflows',i:'⚡'},{n:st.multiCurrency?'Yes':'No',l:'Multi-Currency',i:'💱'}];
+  return `<div class="card"><div class="ptitle">Almost <em>done!</em></div><div class="psub">Here's a summary of what you've shared. Generate your documents below — your DealHub team uses these to begin configuration.</div><div class="rev-grid">${stats.map(s=>`<div class="rev-c"><div style="font-size:18px;margin-bottom:6px">${s.i}</div><div class="rev-n">${s.n}</div><div class="rev-l">${s.l}</div></div>`).join('')}</div>${en.length?`<div style="margin-bottom:20px"><div class="slbl">Selected use cases</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">${en.map(u=>`<span class="badge">${u.i} ${esc(u.n)}</span>`).join('')}</div></div>`:''}<div class="g2"><div style="background:linear-gradient(135deg,#0d2137,#0f2a1e);border:1.5px solid var(--primary);border-radius:12px;padding:18px"><div style="font-size:20px;margin-bottom:8px">📋</div><div style="font-size:14px;font-weight:700;margin-bottom:4px">Configuration Design Document</div><div style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.5">Full DealHub technical spec — question groups, approval matrices, playbook structure, CRM field mapping, and recommended build sequence.</div><button class="btn btn-p" onclick="genDoc()" ${st.docGenerating?'disabled':''} style="width:100%;justify-content:center;font-size:12px">${st.docGenerating?'<span style="display:flex;align-items:center;gap:7px"><span class="spin spin-dk" style="width:13px;height:13px;border-width:2.5px"></span>Generating…</span>':'🤖 Generate Design Document'}</button>${st.docError?`<div style="margin-top:8px;font-size:10px;color:#f87171">⚠️ ${esc(st.docError)}</div>`:''}</div><div style="background:linear-gradient(135deg,#0d2137,#12101e);border:1.5px solid var(--muted);border-radius:12px;padding:18px"><div style="font-size:20px;margin-bottom:8px">🗺️</div><div style="font-size:14px;font-weight:700;margin-bottom:4px">Configuration Mind Map</div><div style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.5">Visual overview of your full DealHub scope — company at the centre, each configuration area as a branch.</div><button class="btn" onclick="genMM()" ${st.mmGenerating?'disabled':''} style="width:100%;justify-content:center;font-size:12px;border-color:var(--muted);color:var(--muted)" onmouseover="this.style.borderColor='var(--primary)';this.style.color='var(--primary)'" onmouseout="this.style.borderColor='var(--muted)';this.style.color='var(--muted)'">${st.mmGenerating?'<span style="display:flex;align-items:center;gap:7px"><span class="spin" style="width:12px;height:12px;border-width:2px"></span>Generating…</span>':'🤖 Generate Mind Map'}</button>${st.mmError?`<div style="margin-top:8px;font-size:10px;color:#f87171">⚠️ ${esc(st.mmError)}</div>`:''}</div></div><div style="background:rgba(61,232,176,.04);border:1px solid rgba(61,232,176,.12);border-radius:8px;padding:13px 15px;margin-top:14px;display:flex;align-items:flex-start;gap:10px"><span style="font-size:18px;flex-shrink:0">💬</span><p style="font-size:12px;color:var(--muted);line-height:1.65"><strong style="color:var(--text)">What happens next?</strong> Once you submit, your DealHub CSM receives the design document and will schedule a review call within 2 business days to confirm the configuration plan before build begins.</p></div></div>`;
+}
+
+async function genDoc(){
+  st.docGenerating=true;st.docError='';render();
+  const en=st.useCases.filter(u=>u.on);
+  const matrix=st.approvalRows.map(r=>`${r.role}: up to ${r.max} → ${r.approver}`).join('\n');
+  const rules=st.ruleRows.filter(r=>r.rule).map(r=>`${r.rule} → Step 1: ${r.step1}${r.step2?' → Step 2: '+r.step2:''}`).join('\n');
+  const skuNames=st.skus.slice(0,30).map(s=>Object.values(s).filter(v=>v&&v!=='id').slice(0,4).join(' | ')).join('\n');
+  const ctx=`CLIENT: ${st.co||'(not specified)'}
+DATE: ${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}
+INDUSTRY: ${st.industry||'Not specified'} | CRM: ${st.crm}
+DEAL VOLUME: ${st.dealVolume||'N/A'} | DEAL SIZE: ${st.dealSize||'N/A'} | GO-LIVE: ${st.goLive||'TBD'}
+ADDITIONAL CONTEXT: ${st.addCtx||'None'}
+PRODUCTS: ${st.skuFile||'Not uploaded'} (${st.skuCount} SKUs)
+Multi-currency: ${st.multiCurrency?`Yes — ${st.currencies}`:'No'}
+Product analysis: ${st.productInsight||'Not analysed'}
+SKU sample:\n${skuNames||'No products uploaded'}
+USE CASES (${en.length}):\n${en.map(u=>`• ${u.n}${u.detail?' — '+u.detail:''}`).join('\n')||'None'}
+SELLING FLOW: "${st.sellingFlow||'Not provided'}"
+APPROVAL DESCRIPTION: "${st.approvalText||'Not provided'}"
+DISCOUNT MATRIX:\n${matrix||'Not defined'}
+RULE-BASED WORKFLOWS:\n${rules||'None'}
+COMMERCIAL TERMS: Payment: ${st.payTerms||'N/A'} | Net days: ${st.netDays||'N/A'} | Auto-renewal: ${st.autoRenew||'N/A'} | MSA: ${st.msa||'N/A'} | Other: ${st.otherTerms||'None'}`;
+
+  const sys=`You are a senior DealHub Solution Architect writing a Configuration Design Document. You have deep DealHub CPQ expertise and have reviewed 5+ real design documents.
+
+DEALHUB PLATFORM KNOWLEDGE:
+QUESTION GROUPS: Every playbook starts with [GQ] General Questions (always these fields: Opportunity Type CRM Read-Only, Start Date Date-Proposal-Date, Duration Numeric-Answer Min 12 Default 12 Stepping 12, End Date Date-Formula Start+Duration Read-Only). Then [Billing & Terms] (Payment Terms Text-List, Payment Method Text-List, Auto Renewal Text-Radio). Then [Billing Contact] (Billing Contact Name/Email/Phone Text-Answer Read-Only queried from CRM). Then product-specific QGs per product family with playbook filters. Feature-driven QGs: [Multi_System_Settings] for multi-year with ordinal/date calculations, [Partner] for partner deals, [Trial_Settings] for pilots.
+QUESTION TYPES: CRM (reads CRM field, always read-only) | Text-List (dropdown, list options comma-separated) | Text-Radio (binary choice) | Text-Answer (free text) | Date-Proposal Date (auto-sets to today) | Date-Formula (calculated, show formula) | Numeric-Answer (Min/Max/Default/Stepping) | Numeric-Calculated (formula-based, hidden read-only)
+REQUIRED FEATURES (in Config Plan): Multi Year Yes/No + detail | Multi Offer Yes/No | Pilots/Free Trials Yes/No + detail | Partner Program Yes/No + detail
+APPROVALS: General Workflows = hierarchical discount matrix (role has ceiling %, escalates up). Rule-Based Workflows = condition → specific named approver(s) regardless of submitter, up to 3-4 sequential steps. Approver types: User (specific name), Role (anyone in a role), Direct Manager (CRM hierarchy).
+BOILERPLATE TEXT TO USE VERBATIM: DealHub Pillars intro: "Successful DealHub architecture balances four interdependent pillars—Seller Experience, Buyer Experience, Data Integrity, and Maintainability/Scalability/Adaptability. Each decision should strengthen the overall solution while maintaining simplicity, accuracy, and usability."
+Standard Objectives: "Automate and standardize product configuration, pricing, and quoting processes." | "Enhance sales productivity by reducing quote generation time." | "Improve quote accuracy and compliance with pricing policies." | "Enable guided selling and upsell/cross-sell strategies." | "Provide better visibility into quote and deal performance via analytics."
+General Workflow boilerplate: "General Workflows in DealHub follow a hierarchical approval structure and are well suited for scenarios tied to thresholds, such as discounts or margins. Each role is assigned a maximum approval limit, and the request escalates automatically when a user exceeds their permitted range."
+Rule-Based boilerplate: "Rule-based workflows operate on a direct one-to-one relationship between a specific event and the designated approver. They do not consider the submitter's role or hierarchy; instead, the condition alone dictates routing."
+
+OUTPUT: Clean HTML fragment only. No html/head/body tags. Use the CSS classes defined in the document template.
+HEADING PATTERN — for each section use this structure:
+<div class="section">
+<div class="sec-num">SECTION N</div>
+<h1>Section Title</h1>
+<div class="sec-divider"></div>
+...content...
+</div>
+
+TABLE STYLES: All tables use the default styles. For special cells use these spans:
+- Yes/No: <span class="badge-yes">Yes</span> or <span class="badge-no">No</span>
+- TBD: <span class="badge-tbd">TBD</span>
+- Action Required: <span class="badge-action">ACTION REQUIRED</span>
+- Question type: <span class="tag-type">Text - List</span>
+- Owner: <span class="tag-owner">DH</span> or <span class="tag-owner">Client</span>
+- Priority High: <span class="tag-p-high">High</span> | Med: <span class="tag-p-med">Medium</span> | Low: <span class="tag-p-low">Low</span>
+
+CALLOUT BOXES: Use for important notes:
+<div class="callout callout-info"><div class="callout-icon">ℹ️</div><p><strong>Note:</strong> text here</p></div>
+<div class="callout callout-green"><div class="callout-icon">✅</div><p>text</p></div>
+<div class="callout callout-warn"><div class="callout-icon">⚠️</div><p>text</p></div>
+
+APPROVAL MATRIX table: add class="approval-matrix" to the table element.
+
+WRITE ALL 8 SECTIONS (wrap each in <div class="section">):
+1. Executive Summary: meta info, objectives list, scope list, Decision Makers table (5 roles), timeline.
+2. DealHub Pillars of Design: boilerplate + client strategy paragraph.
+3. Integrations & Features: CRM connection table, environments table, packages table, optional integrations, feature requests.
+4. Configuration Plan — New Business: opportunity types table, required features table (use badge-yes/badge-no), then for EACH question group: h2 heading, then proper table with columns Question | Type | Details | Hidden | Read Only. Use tag-type span for question types. Include [GQ], [Billing & Terms], [Billing Contact], product QGs, and feature QGs.
+5. Products & Pricing: pricing narrative, products table, assignment rules table.
+6. Approvals: boilerplate callout boxes, Discount Matrix table (class="approval-matrix"), Rule-Based Workflows table.
+7. Recommended Build Sequence: numbered table with tag-owner and tag-p-high/med/low spans.
+8. UAT Checklist: test scenarios table with priority tags.`;
+
+  try{
+    const res=await fetch(PX,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:5000,system:sys,messages:[{role:'user',content:`Generate the full DealHub Configuration Design Document:\n\n${ctx}`}]})});
+    const d=await res.json();
+    if(d.error){st.docError=d.error.message;st.docGenerating=false;render();return;}
+    st.docGenerating=false;render();openDoc(d.content?.[0]?.text||'');
+  }catch(e){st.docError='Could not reach AI.';st.docGenerating=false;render();}
+}
+
+function openDoc(html){
+  const co=st.co||'Client',dt=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
+  // Generate the top-down mind map SVG inline in the document
+  const mmSvg=buildTreeSVG();
+  const pg=`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>DealHub Design Document — ${co}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,sans-serif;background:#fff;color:#111827;font-size:13px;line-height:1.75;-webkit-font-smoothing:antialiased}
+
+/* Cover */
+.cover{background:linear-gradient(160deg,#0a1628 0%,#0f2a1e 60%,#0a1628 100%);color:#fff;padding:72px 72px 60px;min-height:320px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.cover::before{content:'';position:absolute;top:-60px;right:-60px;width:320px;height:320px;border-radius:50%;background:radial-gradient(circle,rgba(61,232,176,0.08) 0%,transparent 70%)}
+.cover::after{content:'';position:absolute;bottom:-40px;left:40px;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(61,232,176,0.05) 0%,transparent 70%)}
+.cover-top{display:flex;align-items:center;justify-content:space-between}
+.cover-logo{display:flex;align-items:center;gap:10px}
+.cover-logo-mark{width:36px;height:36px;background:#3de8b0;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:16px;color:#0a1628}
+.cover-logo-text{font-size:14px;font-weight:700;color:rgba(255,255,255,0.7);letter-spacing:0.5px}
+.cover-badge{background:rgba(61,232,176,0.12);border:1px solid rgba(61,232,176,0.3);color:#3de8b0;border-radius:20px;padding:4px 14px;font-size:10px;font-weight:600;letter-spacing:0.5px}
+.cover-main{margin-top:40px}
+.cover-eyebrow{font-size:11px;font-weight:600;color:#3de8b0;letter-spacing:2px;text-transform:uppercase;margin-bottom:14px;opacity:0.9}
+.cover-client{font-size:38px;font-weight:800;color:#fff;line-height:1.1;margin-bottom:10px;letter-spacing:-0.5px}
+.cover-subtitle{font-size:15px;color:rgba(255,255,255,0.55);margin-bottom:0}
+.cover-meta{display:flex;gap:0;margin-top:40px;border-top:1px solid rgba(255,255,255,0.1);padding-top:24px}
+.cover-meta-item{flex:1;padding-right:20px;border-right:1px solid rgba(255,255,255,0.08)}
+.cover-meta-item:last-child{border-right:none;padding-right:0;padding-left:20px;flex:none}
+.cover-meta-label{font-size:9px;font-weight:700;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+.cover-meta-value{font-size:13px;font-weight:600;color:#fff}
+
+/* TOC page */
+.toc-page{padding:60px 72px;border-bottom:1px solid #f0f0f0;background:#fafafa}
+.toc-title{font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:24px}
+.toc-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.toc-item{display:flex;align-items:center;gap:12px;padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-radius:8px}
+.toc-num{width:26px;height:26px;border-radius:6px;background:#0a1628;color:#3de8b0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0}
+.toc-lbl{font-size:12px;font-weight:600;color:#374151}
+
+/* Mind map page */
+.mm-page{padding:60px 72px;border-bottom:3px solid #e5e7eb;page-break-after:always}
+.mm-title{font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px}
+.mm-sub{font-size:22px;font-weight:800;color:#0a1628;margin-bottom:24px}
+.mm-wrap{border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background:#fafbff}
+
+/* Body */
+.body{padding:0 72px 60px;max-width:1000px;margin:0 auto}
+.section{padding-top:48px;border-top:3px solid #f3f4f6;margin-top:48px}
+.section:first-child{border-top:none;margin-top:0;padding-top:48px}
+
+/* Section headings */
+.sec-num{display:inline-block;background:#0a1628;color:#3de8b0;border-radius:6px;padding:3px 9px;font-size:10px;font-weight:800;margin-bottom:10px;letter-spacing:0.5px}
+h1{font-size:22px;font-weight:800;color:#0a1628;margin-bottom:6px;letter-spacing:-0.3px}
+.sec-divider{width:48px;height:3px;background:#3de8b0;border-radius:2px;margin-bottom:20px}
+h2{font-size:15px;font-weight:700;color:#0a1628;margin:28px 0 10px;padding-left:12px;border-left:3px solid #3de8b0}
+h3{font-size:11px;font-weight:700;color:#6b7280;margin:20px 0 8px;text-transform:uppercase;letter-spacing:0.8px}
+p{margin-bottom:12px;color:#374151;line-height:1.75;font-size:13px}
+ul,ol{padding-left:20px;margin-bottom:14px}
+li{margin-bottom:5px;color:#374151;font-size:13px}
+
+/* Tables */
+table{width:100%;border-collapse:separate;border-spacing:0;margin-bottom:20px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;font-size:12px}
+thead tr{background:#0a1628}
+th{padding:10px 14px;text-align:left;font-weight:700;font-size:10px;color:#3de8b0;text-transform:uppercase;letter-spacing:0.6px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+td{padding:10px 14px;border-bottom:1px solid #f3f4f6;vertical-align:top;color:#374151}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:nth-child(even){background:#f9fafb}
+tbody tr:hover{background:#f0fdf8}
+
+/* Special cells */
+.badge-yes{background:#dcfce7;color:#166534;border-radius:12px;padding:2px 10px;font-size:10px;font-weight:700;display:inline-block}
+.badge-no{background:#f3f4f6;color:#6b7280;border-radius:12px;padding:2px 10px;font-size:10px;font-weight:700;display:inline-block}
+.badge-tbd{background:#fef9c3;color:#854d0e;border-radius:12px;padding:2px 10px;font-size:10px;font-weight:700;display:inline-block}
+.badge-action{background:#fef2f2;color:#b91c1c;border-radius:4px;padding:1px 7px;font-size:10px;font-weight:700;display:inline-block}
+.tag-type{background:#eff6ff;color:#1d4ed8;border-radius:6px;padding:2px 8px;font-size:10px;font-weight:600;display:inline-block;white-space:nowrap}
+.tag-owner{background:#f0fdf4;color:#166534;border-radius:6px;padding:2px 8px;font-size:10px;font-weight:600;display:inline-block}
+.tag-p-high{background:#fef2f2;color:#b91c1c;border-radius:6px;padding:2px 8px;font-size:10px;font-weight:600;display:inline-block}
+.tag-p-med{background:#fff7ed;color:#c2410c;border-radius:6px;padding:2px 8px;font-size:10px;font-weight:600;display:inline-block}
+.tag-p-low{background:#f0fdf4;color:#166534;border-radius:6px;padding:2px 8px;font-size:10px;font-weight:600;display:inline-block}
+
+/* Info/callout boxes */
+.callout{border-radius:8px;padding:14px 16px;margin:14px 0;display:flex;gap:12px;align-items:flex-start}
+.callout-info{background:#eff6ff;border:1px solid #bfdbfe}
+.callout-green{background:#f0fdf4;border:1px solid #bbf7d0}
+.callout-warn{background:#fffbeb;border:1px solid #fde68a}
+.callout-icon{font-size:16px;flex-shrink:0;margin-top:1px}
+.callout p{margin:0;font-size:12px;color:#374151}
+.callout strong{color:#0a1628}
+
+/* Approval matrix special style */
+.approval-matrix th:first-child,.approval-matrix td:first-child{font-weight:700}
+.pct{font-size:15px;font-weight:800;color:#0a1628}
+
+/* Print */
+.np{display:block}
+hr.section-break{border:none;border-top:1px solid #e5e7eb;margin:32px 0}
+.footer-bar{background:#0a1628;color:rgba(255,255,255,0.35);font-size:10px;padding:14px 72px;display:flex;align-items:center;justify-content:space-between;-webkit-print-color-adjust:exact;print-color-adjust:exact;margin-top:60px}
+@media print{
+  .np{display:none!important}
+  .section{page-break-inside:avoid}
+  table{page-break-inside:avoid}
+  .cover,.toc-page,.mm-page{page-break-after:always}
+  body{font-size:11px}
+  h1{font-size:18px}
+  .body{padding:0 40px 40px}
+  .cover,.toc-page,.mm-page,.body,.footer-bar{padding-left:40px;padding-right:40px}
+}
+</style></head><body>
+
+<!-- COVER -->
+<div class="cover">
+  <div class="cover-top">
+    <div class="cover-logo">
+      <div class="cover-logo-mark">D</div>
+      <div class="cover-logo-text">DealHub CPQ</div>
+    </div>
+    <div class="cover-badge">CONFIDENTIAL · INTERNAL USE</div>
+  </div>
+  <div class="cover-main">
+    <div class="cover-eyebrow">CPQ Configuration Design Document</div>
+    <div class="cover-client">${esc(co)}</div>
+    <div class="cover-subtitle">Prepared by DealHub Professional Services · ${esc(st.crm)} Integration</div>
+  </div>
+  <div class="cover-meta">
+    <div class="cover-meta-item">
+      <div class="cover-meta-label">Date Prepared</div>
+      <div class="cover-meta-value">${dt}</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="cover-meta-label">Version</div>
+      <div class="cover-meta-value">1.0</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="cover-meta-label">Industry</div>
+      <div class="cover-meta-value">${esc(st.industry||'TBD')}</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="cover-meta-label">Go-Live Target</div>
+      <div class="cover-meta-value">${esc(st.goLive||'TBD')}</div>
+    </div>
+  </div>
+</div>
+
+<!-- TABLE OF CONTENTS -->
+<div class="toc-page">
+  <div class="toc-title">Table of Contents</div>
+  <div class="toc-grid">
+    ${[['1','Executive Summary'],['2','DealHub Pillars of Design'],['3','Integrations & Features'],['4','Configuration Plan'],['5','Products & Pricing'],['6','Approvals'],['7','Recommended Build Sequence'],['8','UAT Checklist']].map(([n,l])=>`<div class="toc-item"><div class="toc-num">${n}</div><div class="toc-lbl">${l}</div></div>`).join('')}
+  </div>
+</div>
+
+<!-- MIND MAP -->
+<div class="mm-page">
+  <div class="mm-title">Configuration Overview</div>
+  <div class="mm-sub">DealHub Scope — ${esc(co)}</div>
+  <div class="mm-wrap">${mmSvg}</div>
+</div>
+
+<!-- PRINT BUTTON (hidden in print) -->
+<div class="np" style="padding:16px 72px;background:#f0fdf4;border-bottom:1px solid #bbf7d0;display:flex;align-items:center;justify-content:space-between;font-size:12px;color:#166534">
+  <span>📄 <strong>Save as PDF:</strong> Cmd+P (Mac) or Ctrl+P (Windows) → choose "Save as PDF"</span>
+  <button onclick="window.print()" style="background:#0a1628;color:#3de8b0;border:none;border-radius:7px;padding:8px 18px;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:0.3px">🖨️ Print / Save PDF</button>
+</div>
+
+<!-- DOCUMENT BODY -->
+<div class="body">
+${html}
+</div>
+
+<div class="footer-bar">
+  <span>DealHub CPQ · Configuration Design Document</span>
+  <span>${esc(co)} · ${dt}</span>
+  <span>Confidential — Internal Use Only</span>
+</div>
+</body></html>`;
+  const w=window.open('','_blank');if(w){w.document.write(pg);w.document.close();}
+  else{const b=new Blob([pg],{type:'text/html'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`DealHub_Design_${co.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.html`;a.click();}
+}
+
+// ── TOP-DOWN TREE MIND MAP ────────────────────────────────────────────────
+function buildTreeSVG(){
+  const co=st.co||'Company';
+  const en=st.useCases.filter(u=>u.on).map(u=>u.n);
+  const skuFamilies=[...new Set(st.skus.map(s=>{const v=Object.values(s).filter(v=>v&&v!=='id');return v[2]||v[1]||'Product';}).slice(0,8))].slice(0,4);
+
+  // Build tree data
+  const tree={
+    label:co,
+    children:[
+      {label:'New Business', color:'#1d2d6b', textColor:'#fff',
+       children:[
+         ...(skuFamilies.length?skuFamilies.map(f=>({label:f.toString().slice(0,18),color:'#2563eb',textColor:'#fff',children:[]})):[{label:'Products',color:'#2563eb',textColor:'#fff',children:[]}]),
+         ...(en.filter(u=>['Multi-Year Contracts','Ramp-Up Pricing','Optional Add-Ons'].includes(u)).map(u=>({label:u.replace(' Contracts','').replace(' Pricing','').replace('Optional ',''),color:'#3b82f6',textColor:'#fff',children:[]})))
+       ]},
+      {label:'Existing Business', color:'#1d2d6b', textColor:'#fff',
+       children:[
+         {label:'Renewals',color:'#374151',textColor:'#fff',children:[]},
+         {label:'Expansions',color:'#374151',textColor:'#fff',children:[]},
+         {label:'Amendments',color:'#374151',textColor:'#fff',children:[]},
+       ]},
+      {label:'Approvals', color:'#1d2d6b', textColor:'#fff',
+       children:[
+         {label:`${st.approvalRows.length} Discount Tiers`,color:'#374151',textColor:'#fff',children:[]},
+         {label:`${st.ruleRows.length} Rule Workflows`,color:'#374151',textColor:'#fff',children:[]},
+       ]},
+      {label:'Configuration', color:'#1d2d6b', textColor:'#fff',
+       children:[
+         {label:'Question Groups',color:'#374151',textColor:'#fff',children:[]},
+         {label:'Billing & Terms',color:'#374151',textColor:'#fff',children:[]},
+         ...(st.multiCurrency?[{label:'Multi-Currency',color:'#374151',textColor:'#fff',children:[]}]:[]),
+       ]},
+    ]
+  };
+
+  return renderTreeSVG(tree,co);
+}
+
+function renderTreeSVG(tree,co){
+  // Layout constants
+  const W=1100,PW=160,PH=38,CH=32,GH=28;
+  const HGAP=28,VGAP=18,TOP=60;
+  const rootW=Math.max(180,co.length*11+40),rootH=46;
+
+  // Measure widths
+  function nodeWidth(n){
+    if(!n.children||!n.children.length) return Math.max(100,n.label.length*8+24);
+    const totalChildW=n.children.reduce((s,c)=>s+nodeWidth(c),0)+(n.children.length-1)*HGAP;
+    return Math.max(Math.max(130,n.label.length*9+28),totalChildW);
+  }
+
+  // Assign x positions (centered over children)
+  function assignX(node,startX,depth){
+    if(!node.children||!node.children.length){node.w=nodeWidth(node);node.cx=startX+node.w/2;return node.w;}
+    let x=startX,totalW=0;
+    node.children.forEach(c=>{const cw=assignX(c,x,depth+1);x+=cw+HGAP;totalW+=cw+HGAP;});
+    totalW-=HGAP;
+    node.w=Math.max(nodeWidth(node),totalW);
+    const firstC=node.children[0],lastC=node.children[node.children.length-1];
+    node.cx=(firstC.cx+lastC.cx)/2;
+    return node.w;
+  }
+
+  // Y positions by depth
+  const depthY=[TOP,TOP+rootH+50,TOP+rootH+50+PH+55,TOP+rootH+50+PH+55+CH+45];
+
+  function assignY(node,depth){node.cy=depthY[Math.min(depth,depthY.length-1)];if(node.children)node.children.forEach(c=>assignY(c,depth+1));}
+
+  // Do layout
+  const rootPad=80;
+  assignX(tree,rootPad,0);
+  // Center root
+  const totalW=tree.w||W-2*rootPad;
+  const rootCx=(rootPad+rootPad+totalW)/2;
+  tree.cx=rootCx;
+  assignY(tree,0);
+
+  // Collect all nodes and connections
+  let nodes=[],conns=[];
+  function collect(node,parent,depth){
+    nodes.push({...node,depth});
+    if(parent){
+      const ph=depth===1?rootH:depth===2?PH:CH;
+      conns.push({x1:parent.cx,y1:parent.cy+ph/2,x2:node.cx,y2:node.cy-CH/2,depth});
+    }
+    if(node.children)node.children.forEach(c=>collect(c,node,depth+1));
+  }
+  collect(tree,null,0);
+
+  // Calc total height
+  const maxY=Math.max(...nodes.map(n=>n.cy))+50;
+  const svgH=maxY+40;
+
+  // Render
+  let svg=`<svg width="${W}" height="${svgH}" viewBox="0 0 ${W} ${svgH}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block">`;
+  svg+=`<rect width="${W}" height="${svgH}" fill="#fafbff"/>`;
+
+  // Draw connections first
+  conns.forEach(c=>{
+    const midY=(c.y1+c.y2)/2;
+    svg+=`<path d="M${c.x1},${c.y1} C${c.x1},${midY} ${c.x2},${midY} ${c.x2},${c.y2}" fill="none" stroke="${c.depth===1?'#1d4ed8':'#93c5fd'}" stroke-width="${c.depth===1?'2':'1.5'}" stroke-opacity="${c.depth===1?'0.8':'0.6'}"/>`;
+  });
+
+  // Draw nodes
+  nodes.forEach(n=>{
+    if(n.depth===0){
+      // Root — large blue pill
+      const rw=rootW,rh=rootH,rx=n.cx-rw/2,ry=n.cy-rh/2;
+      svg+=`<rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" rx="10" fill="#2563eb"/>`;
+      svg+=`<text x="${n.cx}" y="${n.cy+5}" text-anchor="middle" font-size="16" font-weight="800" fill="#fff" font-family="system-ui,sans-serif">${n.label.replace(/&/g,'&amp;').slice(0,22)}</text>`;
+    } else if(n.depth===1){
+      // Level 1 — dark rounded rect
+      const nw=Math.max(130,n.label.length*9+28),nh=PH,nx=n.cx-nw/2,ny=n.cy-nh/2;
+      svg+=`<rect x="${nx}" y="${ny}" width="${nw}" height="${nh}" rx="7" fill="#1d2d6b"/>`;
+      svg+=`<text x="${n.cx}" y="${n.cy+5}" text-anchor="middle" font-size="12" font-weight="700" fill="#fff" font-family="system-ui,sans-serif">${n.label.replace(/&/g,'&amp;').slice(0,20)}</text>`;
+    } else if(n.depth===2){
+      // Level 2 — blue rounded rect
+      const nw=Math.max(90,n.label.length*8+20),nh=CH,nx=n.cx-nw/2,ny=n.cy-nh/2;
+      svg+=`<rect x="${nx}" y="${ny}" width="${nw}" height="${nh}" rx="5" fill="${n.color||'#2563eb'}"/>`;
+      svg+=`<text x="${n.cx}" y="${n.cy+4}" text-anchor="middle" font-size="11" font-weight="600" fill="#fff" font-family="system-ui,sans-serif">${n.label.replace(/&/g,'&amp;').slice(0,18)}</text>`;
+    } else {
+      // Level 3 — text only with dot
+      svg+=`<circle cx="${n.cx}" cy="${n.cy}" r="3" fill="#93c5fd"/>`;
+      svg+=`<text x="${n.cx}" y="${n.cy+14}" text-anchor="middle" font-size="10" fill="#374151" font-family="system-ui,sans-serif">${n.label.replace(/&/g,'&amp;').slice(0,16)}</text>`;
+    }
+  });
+
+  svg+=`</svg>`;
+  return svg;
+}
+
+async function genMM(){
+  st.mmGenerating=true;st.mmError='';render();
+  // Build the tree directly from discovery data — no AI needed
+  try{
+    const mmHtml=buildTreeSVG();
+    st.mmGenerating=false;render();
+    const co=st.co||'DealHub Client';
+    const dt=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
+    const pg=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>DealHub Mind Map — ${co}</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{background:#fafbff;font-family:system-ui,sans-serif;min-height:100vh}
+.bar{background:#0a1628;padding:14px 28px;display:flex;align-items:center;justify-content:space-between}
+.bt{font-size:14px;font-weight:700;color:#3de8b0}.bs{font-size:11px;color:rgba(255,255,255,.4);margin-top:2px}
+.wrap{padding:32px;max-width:1100px;margin:0 auto}
+.mm-card{border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.legend{display:flex;flex-wrap:wrap;gap:16px;padding:16px 24px;border-top:1px solid #f3f4f6;background:#fafafa}
+.li{display:flex;align-items:center;gap:7px;font-size:11px;color:#6b7280}
+.li-dot{width:10px;height:10px;border-radius:3px}
+@media print{.np{display:none!important}body{background:#fff}.wrap{padding:16px}.bar{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style></head><body>
+<div class="bar np"><div><div class="bt">DealHub Configuration Mind Map — ${co}</div><div class="bs">Generated ${dt}</div></div><button onclick="window.print()" style="background:#3de8b0;color:#0a1628;border:none;border-radius:7px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer">🖨️ Save PDF</button></div>
+<div class="wrap">
+  <div class="mm-card">${mmHtml}
+    <div class="legend">
+      <div class="li"><div class="li-dot" style="background:#2563eb"></div>Company / Root</div>
+      <div class="li"><div class="li-dot" style="background:#1d2d6b"></div>Business Stream</div>
+      <div class="li"><div class="li-dot" style="background:#3b82f6"></div>Product Line / Feature</div>
+      <div class="li"><div class="li-dot" style="background:#93c5fd;border-radius:50%"></div>Sub-item</div>
+    </div>
+  </div>
+</div>
+</body></html>`;
+    const w=window.open('','_blank');if(w){w.document.write(pg);w.document.close();}
+    else{const b=new Blob([pg],{type:'text/html'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`DealHub_MindMap_${co.replace(/\s+/g,'_')}.html`;a.click();}
+  }catch(e){st.mmError='Could not generate mind map.';st.mmGenerating=false;render();}
+}
+
+function renderDone(){
+  document.getElementById('content').innerHTML=`<div class="card"><div class="done-sc"><div style="width:68px;height:68px;border-radius:50%;background:var(--accent);border:1px solid rgba(61,232,176,.3);display:flex;align-items:center;justify-content:center;font-size:30px;margin-bottom:16px">🎉</div><div style="font-size:24px;font-weight:800;margin-bottom:8px">Discovery complete!</div><p style="font-size:13px;color:var(--muted);max-width:400px;line-height:1.7;margin-bottom:24px">Thank you. Your DealHub team has everything they need to begin configuration. Expect a follow-up within <strong style="color:var(--text)">2 business days</strong>.</p><button class="btn btn-p" onclick="startOver()">Start New Discovery</button></div></div>`;
+  document.getElementById('footer').innerHTML='';document.getElementById('prog').innerHTML='';
+}
+function startOver(){st=freshSt();aiMs=[{r:'ai',h:'👋 Ready for a new discovery! Fill in the company name above and let\'s get started.'}];aiSeen=new Set();document.getElementById('coInp').value='';render();}
+
+function handleDrop(e){e.preventDefault();const f=e.dataTransfer.files[0];if(f)processFile(f);}
+function handleFile(inp){const f=inp.files[0];if(f)processFile(f);inp.value='';}
+function clearSku(){st.skuFile='';st.skuCount=0;st.skus=[];st.productInsight='';render();}
+
+function processFile(file){
+  if(!/\.(xlsx|xls|csv)$/i.test(file.name)){alert('Please upload .xlsx, .xls, or .csv');return;}
+  const r=new FileReader();
+  r.onload=e=>{
+    try{
+      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+      const json=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});
+      if(!json.length){showMsg('skuMsg','⚠️ File appears empty',1);return;}
+      st.skus=json.map(row=>({id:uid(),...row}));st.skuFile=file.name;st.skuCount=json.length;
+      render();analyseProducts();
+    }catch(err){showMsg('skuMsg','⚠️ '+err.message,1);}
+  };
+  r.readAsArrayBuffer(file);
+}
+
+async function analyseProducts(){
+  st.productInsightLoading=true;render();
+  const sample=st.skus.slice(0,30).map(s=>Object.values(s).filter(v=>v&&v!=='id').slice(0,5).join(' | ')).join('\n');
+  const sys=`You are a DealHub CPQ architect. Analyse this product catalog and write a 2-3 sentence plain-English summary for the client. Describe: number of product families, pricing models (per-user/per-seat/per-transaction/flat/tiered), billing types (one-time vs recurring), and any notable structural patterns. End with one sentence about what this means for DealHub configuration. Plain prose only — no markdown.`;
+  try{
+    const res=await fetch(PX,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:180,system:sys,messages:[{role:'user',content:`Product catalog (${st.skuCount} SKUs):\n${sample}`}]})});
+    const d=await res.json();
+    if(!d.error){st.productInsight=d.content?.[0]?.text||'';pushAI(`I've analysed your product catalog. ${st.productInsight} Click <strong>Continue</strong> when you're happy with what's uploaded.`);}
+  }catch(e){}
+  st.productInsightLoading=false;render();
+}
+
+function showMsg(id,msg,e){const el=document.getElementById(id);if(!el)return;el.textContent=msg;el.style.color=e?'#f87171':'var(--primary)';if(!e)setTimeout(()=>{if(el)el.textContent='';},5000);}
+
+render();
+</script>
+</body>
+</html>
