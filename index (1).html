@@ -1,0 +1,1433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DealHub Discovery Wizard</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a1628;color:#e8f0fe;font-size:14px}
+:root{--dh-bg:#0a1628;--dh-card:#0f1f38;--dh-border:#1e3a5f;--dh-primary:#3de8b0;--dh-text:#e8f0fe;--dh-muted:#7a9bc4;--dh-accent:#1a3d2e}
+.app{background:var(--dh-bg);min-height:100vh}
+.header{border-bottom:1px solid var(--dh-border);background:var(--dh-card);padding:12px 20px;position:sticky;top:0;z-index:10}
+.header-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-icon{width:34px;height:34px;border-radius:8px;background:var(--dh-primary);color:#0a1628;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px}
+.logo-text h1{font-size:16px;font-weight:700}
+.logo-text h1 span{color:var(--dh-primary)}
+.logo-text p{font-size:11px;color:var(--dh-muted)}
+.client-row{display:flex;align-items:center;gap:8px}
+.client-row label{font-size:12px;color:var(--dh-muted)}
+.steps-scroll{display:flex;gap:4px;overflow-x:auto;padding-bottom:4px;align-items:center}
+.steps-scroll::-webkit-scrollbar{height:3px}
+.steps-scroll::-webkit-scrollbar-thumb{background:var(--dh-border);border-radius:2px}
+.step-item{display:flex;align-items:center;gap:4px;flex-shrink:0}
+.step-btn{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;border:none;cursor:pointer;transition:all 0.2s}
+.step-active{background:var(--dh-primary);color:#0a1628}
+.step-done{background:var(--dh-accent);color:var(--dh-primary);border:1px solid var(--dh-primary)}
+.step-inactive{background:#1a2d4a;color:var(--dh-muted)}
+.step-label{font-size:10px;color:var(--dh-muted);display:none}
+@media(min-width:900px){.step-label{display:block}}
+.step-label.active{color:var(--dh-text)}
+.step-connector{width:16px;height:1px;background:var(--dh-border)}
+.step-connector.done{background:var(--dh-primary)}
+.main{padding:16px 20px;max-width:960px;margin:0 auto;padding-bottom:100px}
+.card{background:var(--dh-card);border:1px solid var(--dh-border);border-radius:10px;padding:20px}
+.section-title{font-size:15px;font-weight:600;margin-bottom:4px}
+.section-desc{font-size:12px;color:var(--dh-muted);margin-bottom:14px;line-height:1.5}
+.field-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-bottom:8px}
+.field-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.inp{background:#0a1628;border:1px solid var(--dh-border);color:var(--dh-text);border-radius:6px;padding:6px 10px;font-size:12px;width:100%;outline:none}
+.inp:focus{border-color:var(--dh-primary)}
+.inp::placeholder{color:var(--dh-muted)}
+.sel{background:#0a1628;border:1px solid var(--dh-border);color:var(--dh-text);border-radius:6px;padding:6px 8px;font-size:12px;width:100%;outline:none;cursor:pointer}
+.textarea{background:#0a1628;border:1px solid var(--dh-border);color:var(--dh-text);border-radius:6px;padding:8px 10px;font-size:12px;width:100%;resize:vertical;min-height:60px;outline:none;font-family:inherit}
+.btn{border:1px solid var(--dh-border);background:transparent;color:var(--dh-text);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:all 0.15s}
+.btn:hover{border-color:var(--dh-primary);color:var(--dh-primary)}
+.btn:disabled{opacity:0.4;cursor:default}
+.btn-primary{background:var(--dh-primary);border-color:var(--dh-primary);color:#0a1628;font-weight:600}
+.btn-primary:hover{opacity:0.9;color:#0a1628}
+.btn-danger{color:#f87171;border-color:#3a1f1f}
+.btn-danger:hover{color:#ef4444;border-color:#ef4444;background:#1a0f0f}
+.row-item{background:#0a1628;border:1px solid var(--dh-border);border-radius:8px;padding:10px;margin-bottom:8px}
+.row-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.badge{display:inline-flex;align-items:center;gap:4px;background:var(--dh-accent);color:var(--dh-primary);border-radius:12px;padding:2px 8px;font-size:11px;font-weight:500}
+.tag{display:inline-flex;align-items:center;background:#1e3a5f;color:#7ab8f5;border-radius:8px;padding:2px 7px;font-size:10px;margin-right:3px}
+.switch-row{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--dh-border)}
+.switch-row:last-child{border-bottom:none}
+.switch{position:relative;width:36px;height:20px;flex-shrink:0;margin-top:2px}
+.switch input{opacity:0;width:0;height:0}
+.slider{position:absolute;cursor:pointer;inset:0;background:#1a2d4a;border-radius:20px;transition:0.2s;border:1px solid var(--dh-border)}
+.slider:before{content:'';position:absolute;width:14px;height:14px;left:2px;bottom:2px;background:var(--dh-muted);border-radius:50%;transition:0.2s}
+input:checked+.slider{background:var(--dh-accent);border-color:var(--dh-primary)}
+input:checked+.slider:before{transform:translateX(16px);background:var(--dh-primary)}
+.uc-name{font-size:13px;font-weight:500}
+.uc-desc{font-size:11px;color:var(--dh-muted);margin-top:2px;line-height:1.5}
+.footer{border-top:1px solid var(--dh-border);background:var(--dh-card);padding:10px 20px;display:flex;justify-content:space-between;align-items:center;position:sticky;bottom:0;z-index:9}
+.review-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+.review-card{background:#0a1628;border:1px solid var(--dh-border);border-radius:8px;padding:12px;display:flex;align-items:flex-start;gap:10px}
+.upload-zone{border:2px dashed var(--dh-border);border-radius:8px;padding:18px;text-align:center;cursor:pointer;margin-bottom:12px;transition:all 0.2s}
+.upload-zone:hover{border-color:var(--dh-primary);background:var(--dh-accent)}
+.welcome-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0}
+.welcome-card{background:#0a1628;border:1px solid var(--dh-border);border-radius:8px;padding:12px;text-align:center}
+.calc-card{background:#0a1628;border:1px solid var(--dh-border);border-radius:8px;padding:14px;margin-bottom:8px;display:flex;align-items:flex-start;gap:12px;transition:opacity 0.2s}
+.calc-card.skipped{opacity:0.4}
+.calc-toggle{width:22px;height:22px;border-radius:5px;border:1px solid var(--dh-border);background:#0a1628;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all 0.15s;flex-shrink:0}
+.calc-toggle.yes{background:var(--dh-accent);border-color:var(--dh-primary);color:var(--dh-primary)}
+.calc-toggle.no{background:#2a1010;border-color:#ef4444;color:#ef4444}
+.billing-row{display:grid;grid-template-columns:130px 1fr 100px 1fr;gap:6px;align-items:center;margin-bottom:6px}
+.term-row{display:grid;grid-template-columns:140px 120px 1fr 34px;gap:6px;align-items:center;margin-bottom:6px}
+.asset-card{background:#0a1628;border:1px solid var(--dh-border);border-radius:8px;padding:10px;margin-bottom:8px}
+.quick-add{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.quick-btn{background:var(--dh-accent);border:1px solid rgba(61,232,176,0.2);border-radius:8px;padding:10px;cursor:pointer;transition:all 0.15s}
+.quick-btn:hover{border-color:var(--dh-primary)}
+.example-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+.example-card{background:#0a1628;border:1px solid var(--dh-border);border-radius:8px;padding:12px;cursor:pointer;transition:all 0.15s}
+.example-card:hover{border-color:var(--dh-primary);background:var(--dh-accent)}
+.success-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 20px;text-align:center;min-height:400px}
+
+/* ── Flowchart ── */
+.flowchart{overflow-x:auto;padding:10px 0 20px}
+.fc-node{display:flex;flex-direction:column;align-items:center;margin-bottom:0}
+.fc-box{background:#0d2137;border:1.5px solid var(--dh-primary);border-radius:8px;padding:10px 16px;min-width:200px;max-width:280px;text-align:center;position:relative;cursor:pointer;transition:all 0.15s}
+.fc-box:hover{background:var(--dh-accent)}
+.fc-box-label{font-size:11px;color:var(--dh-muted);margin-bottom:3px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px}
+.fc-box-text{font-size:12px;color:var(--dh-text);font-weight:500;line-height:1.4}
+.fc-diamond{width:0;height:0;border-left:70px solid transparent;border-right:70px solid transparent;border-bottom:40px solid var(--dh-primary);position:relative;margin:0 auto}
+.fc-diamond:after{content:'';width:0;height:0;border-left:66px solid transparent;border-right:66px solid transparent;border-bottom:38px solid #0d2137;position:absolute;top:3px;left:-66px}
+.fc-diamond-text{position:absolute;top:10px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--dh-text);white-space:nowrap;font-weight:600;z-index:1}
+.fc-arrow{width:2px;height:20px;background:var(--dh-primary);margin:0 auto}
+.fc-arrow-h{height:2px;background:var(--dh-primary);flex:1}
+.fc-branches{display:flex;gap:0;align-items:flex-start;position:relative;margin-top:0}
+.fc-branch{display:flex;flex-direction:column;align-items:center;flex:1}
+.fc-branch-label{font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;margin-bottom:6px}
+.fc-yes{color:#3de8b0;background:rgba(61,232,176,0.1);border:1px solid rgba(61,232,176,0.3)}
+.fc-no{color:#f87171;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3)}
+.fc-outcome{background:#0a1628;border:1px solid var(--dh-border);border-radius:6px;padding:8px 12px;font-size:11px;color:var(--dh-muted);max-width:180px;text-align:center;line-height:1.4}
+.fc-hline{display:flex;align-items:center;width:100%}
+
+/* ── Floating AI Chat ── */
+#aiBtn{position:fixed;bottom:80px;right:24px;width:54px;height:54px;border-radius:50%;background:var(--dh-primary);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 4px 20px rgba(61,232,176,0.4);z-index:100;transition:all 0.2s}
+#aiBtn:hover{transform:scale(1.08)}
+#aiBtn .notif{position:absolute;top:2px;right:2px;width:12px;height:12px;background:#f87171;border-radius:50%;border:2px solid var(--dh-bg);display:none}
+#aiPanel{position:fixed;bottom:150px;right:24px;width:340px;background:var(--dh-card);border:1px solid var(--dh-border);border-radius:14px;box-shadow:0 8px 40px rgba(0,0,0,0.5);z-index:100;display:none;flex-direction:column;overflow:hidden}
+#aiPanel.open{display:flex}
+#aiPanelHeader{background:#0a1e35;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--dh-border)}
+#aiPanelHeader span{font-size:13px;font-weight:600;color:var(--dh-primary);display:flex;align-items:center;gap:6px}
+#aiCloseBtn{background:none;border:none;color:var(--dh-muted);cursor:pointer;font-size:16px;line-height:1}
+#aiCloseBtn:hover{color:var(--dh-text)}
+#aiMessages{height:300px;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
+#aiMessages::-webkit-scrollbar{width:3px}
+#aiMessages::-webkit-scrollbar-thumb{background:var(--dh-border);border-radius:2px}
+.ai-bubble{background:var(--dh-accent);border:1px solid rgba(61,232,176,0.15);border-radius:10px 10px 10px 3px;padding:9px 12px;font-size:12px;line-height:1.6;max-width:94%}
+.ai-bubble strong{color:var(--dh-primary)}
+.user-bubble{background:#1a2d4a;border-radius:10px 10px 3px 10px;padding:9px 12px;font-size:12px;line-height:1.5;max-width:88%;align-self:flex-end;text-align:right}
+.ai-typing{background:var(--dh-accent);border-radius:10px;padding:9px 14px;font-size:12px;color:var(--dh-muted);display:flex;align-items:center;gap:6px}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--dh-primary);animation:bounce 1.2s infinite}
+.dot:nth-child(2){animation-delay:0.2s}
+.dot:nth-child(3){animation-delay:0.4s}
+@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
+#aiInputRow{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--dh-border);background:#0a1e35}
+#aiInput{flex:1;background:#0a1628;border:1px solid var(--dh-border);color:var(--dh-text);border-radius:6px;padding:7px 10px;font-size:12px;outline:none;font-family:inherit}
+#aiInput:focus{border-color:var(--dh-primary)}
+#aiSendBtn{background:var(--dh-primary);border:none;border-radius:6px;padding:7px 12px;color:#0a1628;font-size:12px;font-weight:600;cursor:pointer}
+#aiSendBtn:hover{opacity:0.9}
+#aiStepLabel{padding:6px 12px;font-size:10px;color:var(--dh-muted);background:#0a1628;text-align:center;border-bottom:1px solid var(--dh-border)}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="header">
+  <div class="header-top">
+    <div class="logo">
+      <div class="logo-icon">D</div>
+      <div class="logo-text">
+        <h1>dealhub <span>discovery</span></h1>
+        <p>Complete your project configuration details</p>
+      </div>
+    </div>
+    <div class="client-row">
+      <label>Client:</label>
+      <input class="inp" id="clientNameInp" placeholder="Company name" style="width:160px" oninput="state.clientName=this.value">
+    </div>
+  </div>
+  <div class="steps-scroll" id="stepsBar"></div>
+</div>
+<div class="main" id="mainContent"></div>
+<div class="footer" id="footer"></div>
+</div>
+
+<!-- Floating AI Advisor -->
+<button id="aiBtn" onclick="toggleAI()" title="CPQ Advisor">🤖<div class="notif" id="aiNotif"></div></button>
+<div id="aiPanel">
+  <div id="aiPanelHeader">
+    <span>🤖 CPQ Configuration Advisor</span>
+    <button id="aiCloseBtn" onclick="toggleAI()">✕</button>
+  </div>
+  <div id="aiStepLabel">Step 1 — Welcome</div>
+  <div id="aiMessages"></div>
+  <div id="aiInputRow">
+    <input id="aiInput" placeholder="Ask or answer…" onkeydown="if(event.key==='Enter')sendAI()">
+    <button id="aiSendBtn" onclick="sendAI()">↗</button>
+  </div>
+</div>
+
+<script>
+const PROXY_URL = 'https://dealhub-proxy.vercel.app/api/chat';
+
+const STEPS=[
+  {label:'Welcome'},{label:'Products'},{label:'Use Cases'},
+  {label:'Decisions'},{label:'Approvals'},{label:'Calculations'},
+  {label:'Terms'},{label:'Billing'},{label:'DealRoom'},{label:'Review'}
+];
+
+// Per-step auto-trigger messages
+const STEP_INTROS=[
+  null, // Welcome — no auto message
+  'I see you\'re on the <strong>Products</strong> step. Once you upload your catalog, I can help you think through pricing structures, bundle logic, or product types. Anything specific about your product catalog I should know?',
+  'You\'re on <strong>Use Cases</strong>. Toggle on every scenario that applies to your business — I\'ll ask targeted follow-up questions as you enable them. Which use cases are most critical for your go-live?',
+  null, // Decisions — no AI, just flowchart
+  'Now let\'s talk <strong>Approvals</strong>. The examples above are common starting points. What kinds of deals in your business typically need manual approval before sending to a customer?',
+  'On to <strong>Calculations</strong>. Check ✓ for every metric your team actually tracks. Do you currently calculate these in your CRM, or would DealHub be the source of truth?',
+  'For <strong>Commercial Terms</strong> — what are the most common payment terms your sales team offers? Are there any non-standard terms that come up frequently in negotiations?',
+  'On <strong>Billing Fields</strong> — does your team pull billing info from the CRM, or do reps fill it in manually on each quote? Are there any fields that are frequently missing or incorrect?',
+  'Great progress! For your <strong>DealRoom</strong> — do you have existing proposal templates or brand guidelines we should match? What does your current customer-facing quote or proposal look like?',
+  'You\'re at the <strong>Review</strong> step — almost done! Looking at what you\'ve entered, is there anything you\'re unsure about or want me to clarify before you submit?',
+];
+
+const uid=()=>Math.random().toString(36).slice(2,9);
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+const DEFAULT_USE_CASES=[
+  {id:uid(),name:'Multi Year',desc:'Sell products spanning more than one year in a single quote.',enabled:false,details:''},
+  {id:uid(),name:'Ramp Up',desc:'Clients start with a lower quantity and scale up each term.',enabled:false,details:''},
+  {id:uid(),name:'Cherry Picking',desc:'Manual product selection by RevOps on specific deals.',enabled:false,details:''},
+  {id:uid(),name:'Trials / PoC',desc:'Sell at reduced price or free for a limited trial period.',enabled:false,details:''},
+  {id:uid(),name:'Partner Deals',desc:'Quotes for resellers/distributors with specific discounts.',enabled:false,details:''},
+  {id:uid(),name:'Optional Products',desc:'Products clients commit to a rate for future consumption.',enabled:false,details:''},
+  {id:uid(),name:'Overage',desc:'Agreed rates when a client exceeds usage on their contract.',enabled:false,details:''},
+  {id:uid(),name:'Pay As You Go',desc:'Unit-rate contract with tariff table and minimum commit.',enabled:false,details:''},
+  {id:uid(),name:'One-time Discount',desc:'One-time discount as a standalone line item.',enabled:false,details:''},
+  {id:uid(),name:'Integrations',desc:'Gong, DocuSign, Slack, SSO, and other integrations.',enabled:false,details:''},
+  {id:uid(),name:'Redline',desc:'Legal redlining on Order Forms, Contracts, or Quotes.',enabled:false,details:''},
+  {id:uid(),name:'CPI',desc:'Annual price increase with configurable rate and waiver options.',enabled:false,details:''},
+];
+
+const CALC_DEFS=[
+  {key:'ARR',desc:'Annual Recurring Revenue — annualized value of recurring subscriptions.'},
+  {key:'MRR',desc:'Monthly Recurring Revenue — ARR ÷ 12.'},
+  {key:'ACV',desc:'Annual Contract Value — average annual value over the contract term.'},
+  {key:'TCV',desc:'Total Contract Value — total revenue across the full contract length.'},
+  {key:'Margins',desc:'Gross margin based on list price vs. cost.'},
+  {key:'Total One-time',desc:'Sum of all non-recurring charges on the quote.'},
+  {key:'Total Recurring',desc:'Sum of all recurring charges (license, support, etc.).'},
+  {key:'VAT',desc:'Value Added Tax applied based on region or country.'},
+  {key:'Tax',desc:'Sales tax or withholding tax applicable to the deal.'},
+  {key:'Total Cost',desc:'Grand total including all line items, taxes, and discounts.'},
+];
+
+const DEFAULT_TERMS=[
+  {id:uid(),field:'Payment Terms',example:'Monthly, Quarterly, Yearly, In Advance',values:''},
+  {id:uid(),field:'Net Days',example:'30, 45, 60, 90 days',values:''},
+  {id:uid(),field:'Auto Renewal',example:'Yes, No',values:''},
+  {id:uid(),field:'Cancellation Notice',example:'30, 60, 90 days',values:''},
+  {id:uid(),field:'Add MSA',example:'Yes, No',values:''},
+  {id:uid(),field:'Payment Method',example:'Credit Card, ACH, AWS',values:''},
+  {id:uid(),field:'CPI',example:'0.03',values:''},
+  {id:uid(),field:'CPI Waiver',example:'Yes, No',values:''},
+];
+
+const DEFAULT_SELLER=[
+  {id:uid(),field:'Seller Entity',options:'',readWrite:'Read',crmField:''},
+  {id:uid(),field:'Seller Company ID',options:'',readWrite:'Read',crmField:''},
+  {id:uid(),field:'Seller Address',options:'',readWrite:'Read',crmField:''},
+];
+const DEFAULT_BUYER=[
+  {id:uid(),field:'Billing Entity',options:'',readWrite:'Read',crmField:''},
+  {id:uid(),field:'Billing Address',options:'',readWrite:'Read',crmField:''},
+  {id:uid(),field:'Billing Contact Name',options:'',readWrite:'Read',crmField:''},
+  {id:uid(),field:'Billing Contact Email',options:'',readWrite:'Read',crmField:''},
+  {id:uid(),field:'Billing Contact Phone',options:'',readWrite:'Read',crmField:''},
+  {id:uid(),field:'Shipping Address',options:'',readWrite:'Read',crmField:''},
+  {id:uid(),field:'Payment Method',options:'',readWrite:'Read',crmField:''},
+  {id:uid(),field:'Billing Frequency',options:'',readWrite:'Read',crmField:''},
+  {id:uid(),field:'PO Required',options:'',readWrite:'Read',crmField:''},
+  {id:uid(),field:'PO Number',options:'',readWrite:'Read',crmField:''},
+  {id:uid(),field:'Bank Details',options:'',readWrite:'Read',crmField:''},
+];
+
+function freshState(){
+  return {
+    step:0,submitted:false,clientName:'',
+    skuFileName:'',skuCount:0,skus:[],
+    currencies:[],multiCurrency:false,exchangeRateSource:'manual',
+    useCases:DEFAULT_USE_CASES.map(u=>({...u,id:uid()})),
+    approvalRules:[],approvers:[],
+    decisionTree:[],dtGenerated:false,
+    calculations:CALC_DEFS.map(d=>({id:uid(),name:d.key,needed:null,crmField:''})),
+    commercialTerms:DEFAULT_TERMS.map(t=>({...t,id:uid()})),
+    sellerBillingFields:DEFAULT_SELLER.map(f=>({...f,id:uid()})),
+    buyerBillingFields:DEFAULT_BUYER.map(f=>({...f,id:uid()})),
+    dealRoomAssets:[],followUpAnswers:{},
+    useCasesContext:'',
+    dtFreeText:'',dtGenerating:false,dtError:'',
+    approvalsFreeText:'',approvalsExtracting:false,approvalsExtractError:'',
+    docGenerating:false,docError:''
+  };
+}
+let state=freshState();
+
+// ── AI Chat State ─────────────────────────────────────────────────────────
+let aiOpen=false;
+let aiLoading=false;
+let aiMessages=[{role:'ai',html:'👋 Hi! I\'m your <strong>CPQ Configuration Advisor</strong>. I\'ll guide you through each step of this discovery. Click any step to get started, and I\'ll automatically offer advice as you go.'}];
+let aiStepSeen=new Set();
+
+function toggleAI(){
+  aiOpen=!aiOpen;
+  document.getElementById('aiPanel').classList.toggle('open',aiOpen);
+  document.getElementById('aiNotif').style.display='none';
+  if(aiOpen)renderAIMessages();
+}
+
+function renderAIMessages(){
+  const el=document.getElementById('aiMessages');
+  if(!el)return;
+  el.innerHTML=aiMessages.map(m=>
+    m.role==='ai'
+      ?`<div class="ai-bubble">${m.html}</div>`
+      :`<div class="user-bubble">${esc(m.text)}</div>`
+  ).join('');
+  if(aiLoading) el.innerHTML+=`<div class="ai-typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`;
+  el.scrollTop=el.scrollHeight;
+  // Update step label
+  const sl=document.getElementById('aiStepLabel');
+  if(sl) sl.textContent=`Step ${state.step+1} — ${STEPS[state.step].label}`;
+}
+
+function showAINotif(){
+  if(!aiOpen){
+    document.getElementById('aiNotif').style.display='block';
+  }
+}
+
+function triggerStepIntro(step){
+  if(aiStepSeen.has(step)||step===3)return; // skip Decisions step
+  const msg=STEP_INTROS[step];
+  if(!msg)return;
+  aiStepSeen.add(step);
+  aiMessages.push({role:'ai',html:msg});
+  showAINotif();
+  if(aiOpen)renderAIMessages();
+}
+
+function buildSysPrompt(){
+  const en=state.useCases.filter(u=>u.enabled).map(u=>u.name);
+  const prod=state.skuFileName?`Product catalog: ${state.skuFileName} (${state.skuCount} SKUs).`:'No product catalog yet.';
+  const stepName=STEPS[state.step]?.label||'Unknown';
+  return `You are a senior CPQ implementation advisor specializing in DealHub.
+You are helping a client complete a discovery form. They are currently on the "${stepName}" step.
+
+Context:
+- Client: ${state.clientName||'(not set)'}
+- ${prod}
+- Enabled use cases: ${en.length?en.join(', '):'none yet'}
+- Client context: ${state.useCasesContext||'(none provided)'}
+- Current step: ${stepName}
+- Approval rules defined: ${state.approvalRules.length}
+- Calculations confirmed: ${state.calculations.filter(c=>c.needed===true).length}
+- Commercial terms filled: ${state.commercialTerms.filter(t=>t.values).length}
+
+Rules:
+- Be conversational, warm and professional. Max 2-3 sentences per reply.
+- Ask ONE focused question at a time relevant to the current step.
+- Acknowledge their answer briefly before moving on.
+- Use **bold** for key DealHub configuration terms.
+- Advisory only — never claim to be making configuration changes.
+- If they ask something outside your scope, say so and redirect to the relevant step.`;
+}
+
+async function sendAI(){
+  const inp=document.getElementById('aiInput');
+  const text=(inp?.value||'').trim();
+  if(!text||aiLoading)return;
+  inp.value='';
+  aiMessages.push({role:'user',text});
+  aiLoading=true;
+  renderAIMessages();
+
+  const msgs=aiMessages.map(m=>({
+    role:m.role==='ai'?'assistant':'user',
+    content:m.html?m.html.replace(/<[^>]+>/g,''):m.text
+  }));
+
+  try{
+    const r=await fetch(PROXY_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:200,system:buildSysPrompt(),messages:msgs})
+    });
+    const d=await r.json();
+    if(d.error){aiMessages.push({role:'ai',html:`⚠️ ${d.error.message}`});}
+    else{
+      const reply=d.content?.[0]?.text||'No response.';
+      aiMessages.push({role:'ai',html:reply.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>')});
+    }
+  }catch(e){
+    aiMessages.push({role:'ai',html:'⚠️ Could not reach the advisor. Check your connection.'});
+  }
+  aiLoading=false;
+  renderAIMessages();
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────
+function render(){
+  renderSteps();
+  if(state.submitted){renderSuccess();return;}
+  renderStep();
+  renderFooter();
+  // Auto-trigger step intro
+  setTimeout(()=>triggerStepIntro(state.step),400);
+}
+
+function renderSteps(){
+  document.getElementById('stepsBar').innerHTML=STEPS.map((s,i)=>{
+    const cls=i<state.step?'step-done':i===state.step?'step-active':'step-inactive';
+    const conn=i<STEPS.length-1?`<div class="step-connector${i<state.step?' done':''}"></div>`:'';
+    return `<div class="step-item"><button class="step-btn ${cls}" onclick="goStep(${i})" title="${s.label}">${i<state.step?'✓':i+1}</button><span class="step-label${i===state.step?' active':''}">${s.label}</span>${conn}</div>`;
+  }).join('');
+}
+function goStep(i){state.step=i;render();}
+
+function renderStep(){
+  const fns=[S0,S1,S2,S3,S4,S5,S6,S7,S8,S9];
+  document.getElementById('mainContent').innerHTML=`<div class="card">${(fns[state.step]||S0)()}</div>`;
+}
+
+// ══ S0 Welcome ═══════════════════════════════════════════════════════════
+function S0(){
+  return `
+<div style="text-align:center;max-width:520px;margin:0 auto 20px">
+  <div style="width:56px;height:56px;border-radius:14px;background:var(--dh-accent);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:26px">🚀</div>
+  <h2 style="font-size:22px;font-weight:700;margin-bottom:8px">Welcome to your <span style="color:var(--dh-primary)">DealHub Discovery</span></h2>
+  <p style="font-size:13px;color:var(--dh-muted);line-height:1.6">This form collects everything needed to configure DealHub to match exactly how you sell.</p>
+</div>
+<div class="welcome-grid">
+  <div class="welcome-card"><div style="font-size:20px;margin-bottom:6px">📊</div><h4 style="font-size:12px;font-weight:500;margin-bottom:4px">Upload Data</h4><p style="font-size:11px;color:var(--dh-muted)">Import your product catalog — no row-by-row entry needed.</p></div>
+  <div class="welcome-card"><div style="font-size:20px;margin-bottom:6px">🤖</div><h4 style="font-size:12px;font-weight:500;margin-bottom:4px">AI Advisor</h4><p style="font-size:11px;color:var(--dh-muted)">Floating advisor available on every step — auto-triggers as you progress.</p></div>
+  <div class="welcome-card"><div style="font-size:20px;margin-bottom:6px">🔀</div><h4 style="font-size:12px;font-weight:500;margin-bottom:4px">Auto Decision Tree</h4><p style="font-size:11px;color:var(--dh-muted)">Flowchart built automatically from your use cases.</p></div>
+</div>
+<div style="background:var(--dh-accent);border-radius:8px;padding:14px;max-width:520px;margin:0 auto">
+  <p style="font-size:12px;font-weight:500;margin-bottom:8px;color:var(--dh-primary)">✓ What to expect</p>
+  <ul style="font-size:12px;color:var(--dh-muted);padding-left:16px;line-height:1.9">
+    <li>9 sections — products, use cases, approvals, calculations & more</li>
+    <li>AI advisor (🤖 bottom right) auto-activates on each step</li>
+    <li>Decision flowchart auto-generated from your context</li>
+    <li>Export to Excel at the end for your CSM</li>
+  </ul>
+</div>
+<p style="text-align:center;font-size:12px;color:var(--dh-muted);margin-top:16px">Click <strong style="color:var(--dh-text)">Next</strong> to get started →</p>
+<div style="text-align:center;margin-top:16px">
+  <a href="https://academy.dealhub.io/app" target="_blank" rel="noopener noreferrer"
+    style="display:inline-flex;align-items:center;gap:8px;background:var(--dh-accent);border:1px solid rgba(61,232,176,0.3);border-radius:8px;padding:10px 20px;text-decoration:none;color:var(--dh-primary);font-size:13px;font-weight:500"
+    onmouseover="this.style.borderColor='var(--dh-primary)'" onmouseout="this.style.borderColor='rgba(61,232,176,0.3)'">
+    🎓 <span>Visit DealHub Academy</span> <span style="font-size:11px;opacity:0.7">↗</span>
+  </a>
+</div>`;
+}
+
+// ══ S1 Products ════════════════════════════════════════════════════════════
+function S1(){
+  const uploaded=state.skuFileName?`
+<div style="background:var(--dh-accent);border:1px solid rgba(61,232,176,0.35);border-radius:8px;padding:14px;display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+  <div style="display:flex;align-items:center;gap:12px">
+    <span style="font-size:22px">✅</span>
+    <div>
+      <div style="font-size:13px;font-weight:500">${esc(state.skuFileName)}</div>
+      <div style="font-size:11px;color:var(--dh-muted);margin-top:2px">${state.skuCount} products loaded — stored for export</div>
+    </div>
+  </div>
+  <button class="btn btn-danger" onclick="clearSku()">✕ Remove</button>
+</div>`:`
+<div class="upload-zone" onclick="document.getElementById('skuFI').click()" ondragover="event.preventDefault();this.style.borderColor='var(--dh-primary)'" ondragleave="this.style.borderColor=''" ondrop="handleDrop(event,'sku')">
+  <input type="file" id="skuFI" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleInput(this,'sku')">
+  <div style="font-size:28px;margin-bottom:8px">📊</div>
+  <p style="font-size:13px;font-weight:500;margin-bottom:4px">Drag & drop your product catalog</p>
+  <p style="font-size:11px;color:var(--dh-muted)">Accepts .xlsx, .xls, or .csv</p>
+  <p style="font-size:11px;color:var(--dh-muted);margin-top:3px">Expected columns: SKU, Name, Description, Type, UoM, Baseline, List Price, Cost</p>
+  <div id="skuImportMsg" style="margin-top:8px;font-size:12px"></div>
+</div>`;
+
+  const currRows=state.multiCurrency?`
+<div style="margin-top:12px;padding-left:4px">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+    <label style="font-size:12px;color:var(--dh-muted)">Exchange rate source:</label>
+    <select class="sel" style="width:200px" onchange="state.exchangeRateSource=this.value">
+      ${['manual','crm','erp','live','other'].map(v=>`<option value="${v}"${state.exchangeRateSource===v?' selected':''}>${{manual:'Manually in DealHub',crm:'Synced from CRM',erp:'Synced from ERP',live:'Live API rates',other:'Other'}[v]}</option>`).join('')}
+    </select>
+  </div>
+  ${state.currencies.map(c=>`<div style="display:flex;gap:8px;margin-bottom:6px;align-items:center">
+    <input class="inp" style="width:90px" placeholder="USD" value="${esc(c.currency)}" oninput="updCur('${c.id}','currency',this.value)">
+    <input class="inp" style="width:130px" placeholder="Conversion Rate" value="${esc(c.conversionRate)}" oninput="updCur('${c.id}','conversionRate',this.value)">
+    <button class="btn btn-danger" onclick="rmCur('${c.id}')">✕</button>
+  </div>`).join('')}
+  <button class="btn" onclick="addCur()" style="margin-top:4px">+ Add Currency</button>
+</div>`:'';
+
+  return `
+<div class="section-title">Product Catalog (SKUs)</div>
+<div class="section-desc">Upload your product catalog once — stored as-is and included in the final export.</div>
+${uploaded}
+<div style="border-top:1px solid var(--dh-border);padding-top:16px">
+  <div class="section-title">Multi-Currency</div>
+  <div class="section-desc">Do you quote in multiple currencies?</div>
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+    <label class="switch"><input type="checkbox"${state.multiCurrency?' checked':''} onchange="state.multiCurrency=this.checked;render()"><span class="slider"></span></label>
+    <span style="font-size:12px;color:var(--dh-muted)">${state.multiCurrency?'Yes — multiple currencies':'No — single currency only'}</span>
+  </div>
+  ${currRows}
+</div>`;
+}
+
+// ══ S2 Use Cases ═══════════════════════════════════════════════════════════
+function S2(){
+  const enabled=state.useCases.filter(u=>u.enabled);
+  const ucRows=state.useCases.map(u=>`
+<div class="switch-row" style="${u.enabled?'background:rgba(61,232,176,0.03);border-radius:8px;padding:10px;margin-bottom:4px;border-bottom:none':''}">
+  <label class="switch"><input type="checkbox"${u.enabled?' checked':''} onchange="toggleUC('${u.id}')"><span class="slider"></span></label>
+  <div style="flex:1">
+    <div class="uc-name">${esc(u.name)}</div>
+    <div class="uc-desc">${esc(u.desc)}</div>
+    ${u.enabled?`<div style="margin-top:8px">
+      <label style="font-size:10px;color:var(--dh-primary);font-weight:600;display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px">How does this work at your company?</label>
+      <textarea class="textarea" rows="2" style="min-height:56px;font-size:11px;line-height:1.5"
+        placeholder="e.g. for Multi Year: same product lines each year with 5% CPI uplift from year 2 onwards…"
+        oninput="updUCDetail('${u.id}',this.value)">${esc(u.details||'')}</textarea>
+    </div>`:''}
+  </div>
+</div>`).join('');
+
+  return `
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+  <div class="section-title">Use Cases</div>
+  ${enabled.length?`<span class="badge">✓ ${enabled.length} enabled</span>`:''}
+</div>
+<div class="section-desc">Toggle on every use case that applies, then describe how it works at your company. The 🤖 advisor (bottom right) will ask follow-up questions.</div>
+${ucRows}`;
+}
+
+function updUCDetail(id,v){state.useCases=state.useCases.map(u=>u.id===id?{...u,details:v}:u);}
+
+function toggleUC(id){
+  state.useCases=state.useCases.map(u=>u.id===id?{...u,enabled:!u.enabled}:u);
+  const uc=state.useCases.find(u=>u.id===id);
+  if(uc.enabled){
+    const q={
+      'Multi Year':'<strong>Multi Year</strong> enabled. Does pricing or content differ between years, or is it the same with an annual uplift?',
+      'Ramp Up':'<strong>Ramp Up</strong> enabled. What\'s the typical ramp schedule — e.g. 50% → 75% → 100% over 3 years?',
+      'Trials / PoC':'<strong>Trials / PoC</strong> enabled. What\'s the typical trial duration, and do they auto-convert to paid or require manual action?',
+      'Partner Deals':'<strong>Partner Deals</strong> enabled. Do partners see end-customer pricing, or only their own discounted price?',
+      'Overage':'<strong>Overage</strong> enabled. Is overage billed monthly in arrears, or reconciled at term end? Any grace buffer?',
+      'Pay As You Go':'<strong>Pay As You Go</strong> enabled. Is there a minimum monthly commit, and how are tariff tiers structured?',
+      'CPI':'<strong>CPI</strong> enabled. What\'s the default annual increase %, and can sales reps waive it?',
+      'Integrations':'<strong>Integrations</strong> enabled. Which are must-haves for go-live — CRM, e-signature, ERP, SSO?',
+      'Redline':'<strong>Redline</strong> enabled. Which document types need redlining — MSA, Order Form, DPA?',
+      'Cherry Picking':'<strong>Cherry Picking</strong> enabled. Who has permission — only RevOps/Deal Desk, or can reps request it?',
+      'Optional Products':'<strong>Optional Products</strong> enabled. Are these visible to the buyer in DealRoom before they accept?',
+      'One-time Discount':'<strong>One-time Discount</strong> enabled. Is it a fixed $ amount or % of subtotal? What\'s the cap before approval is needed?',
+    };
+    const msg=q[uc.name]||`<strong>${uc.name}</strong> enabled. How does this work in your current sales process?`;
+    aiMessages.push({role:'ai',html:msg});
+    showAINotif();
+    if(aiOpen)renderAIMessages();
+  }
+  state.dtGenerated=false;
+  render();
+}
+
+// ══ S3 Decisions — text description → AI flowchart ═════════════════════════
+function S3(){
+  const generating=state.dtGenerating||false;
+  const hasNodes=state.decisionTree.filter(n=>n.condition).length>0;
+  const flowchartHtml=hasNodes?buildFlowchart(state.decisionTree):'';
+
+  return `
+<div class="section-title">Decision Tree</div>
+<div class="section-desc">Describe your quoting decision flow in plain English — Claude will turn it into a visual flowchart. You can then edit individual nodes.</div>
+
+<div style="background:#0a1628;border:1.5px solid var(--dh-primary);border-radius:10px;padding:16px;margin-bottom:20px">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+    <span style="font-size:16px">🗺️</span>
+    <span style="font-size:13px;font-weight:600">Describe your high-level quoting flow</span>
+  </div>
+  <p style="font-size:11px;color:var(--dh-muted);margin-bottom:10px;line-height:1.6">Walk us through how a deal moves from creation to sending. Mention key branching points, deal types, approval triggers, and any special conditions.</p>
+  <div style="background:#0f1f38;border-radius:6px;padding:10px 12px;font-size:11px;color:var(--dh-muted);margin-bottom:10px;line-height:1.7;border:1px solid var(--dh-border)">
+    <span style="color:var(--dh-primary);font-weight:500">Example: </span>"A new quote starts by checking if it's a partner deal — if yes, apply partner pricing, otherwise use standard. Then check if it's multi-year; if yes, add annual pricing schedule. If total value is over $50K or discount exceeds 15%, it goes to VP approval. Legal must review any non-standard contract terms before sending."
+  </div>
+  <textarea class="textarea" id="dtFreeText" rows="5" style="min-height:100px;margin-bottom:10px;line-height:1.6"
+    placeholder="Describe your quoting decision flow here…"
+    oninput="state.dtFreeText=this.value">${esc(state.dtFreeText||'')}</textarea>
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <button class="btn btn-primary" onclick="generateFlowchart()" ${generating?'disabled':''} style="gap:8px">
+      ${generating
+        ?'<span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;border:2px solid #0a1628;border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin 0.7s linear infinite"></span> Building flowchart…</span>'
+        :hasNodes?'🔄 Regenerate Flowchart':'🤖 Build Flowchart with AI'}
+    </button>
+    ${hasNodes?`<span style="font-size:11px;color:var(--dh-muted)">✓ ${state.decisionTree.filter(n=>n.condition).length} nodes generated — edit below</span>`:''}
+  </div>
+  ${state.dtError?`<div style="margin-top:8px;font-size:11px;color:#f87171">⚠️ ${esc(state.dtError)}</div>`:''}
+  <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--dh-border)">
+    <label style="font-size:11px;color:var(--dh-muted);display:block;margin-bottom:4px">🔗 Or link to an existing diagram (Lucidchart, Miro, Figma, Draw.io)</label>
+    <input class="inp" placeholder="https://lucid.app/…" oninput="state.followUpAnswers['dt_link']=this.value" value="${esc(state.followUpAnswers['dt_link']||'')}">
+  </div>
+</div>
+
+${hasNodes?`
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+  <div>
+    <div style="font-size:12px;font-weight:500;color:var(--dh-muted);margin-bottom:10px">Edit nodes</div>
+    ${state.decisionTree.map((n,i)=>`
+    <div style="background:#0a1628;border:1px solid var(--dh-border);border-radius:8px;padding:10px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span style="font-size:11px;font-weight:600;color:var(--dh-primary)">Node ${i+1}</span>
+        <button class="btn btn-danger" style="padding:2px 8px;font-size:11px" onclick="rmDT('${n.id}')">✕</button>
+      </div>
+      <input class="inp" placeholder="Condition" value="${esc(n.condition)}" oninput="updDT('${n.id}','condition',this.value);renderFlowchartOnly()" style="margin-bottom:5px">
+      <div class="field-grid-2">
+        <div><label style="font-size:10px;color:var(--dh-muted);display:block;margin-bottom:2px">✅ If Yes</label><input class="inp" value="${esc(n.trueOutcome)}" oninput="updDT('${n.id}','trueOutcome',this.value);renderFlowchartOnly()" placeholder="Yes outcome"></div>
+        <div><label style="font-size:10px;color:var(--dh-muted);display:block;margin-bottom:2px">❌ If No</label><input class="inp" value="${esc(n.falseOutcome)}" oninput="updDT('${n.id}','falseOutcome',this.value);renderFlowchartOnly()" placeholder="No outcome"></div>
+      </div>
+    </div>`).join('')}
+    <button class="btn" onclick="addDT()" style="margin-top:4px">+ Add Node Manually</button>
+  </div>
+  <div>
+    <div style="font-size:12px;font-weight:500;color:var(--dh-muted);margin-bottom:10px">Live flowchart</div>
+    <div id="flowchartContainer" style="background:#0a1628;border:1px solid var(--dh-border);border-radius:8px;padding:16px;overflow-y:auto;max-height:600px">
+      ${flowchartHtml}
+    </div>
+  </div>
+</div>`:`
+<div style="text-align:center;padding:30px;color:var(--dh-muted);font-size:12px;background:#0a1628;border-radius:8px;border:1px dashed var(--dh-border)">
+  Your flowchart will appear here after you describe your flow above and click <strong style="color:var(--dh-text)">Build Flowchart with AI</strong>.
+</div>`}`;
+}
+
+async function generateFlowchart(){
+  const text=(state.dtFreeText||'').trim();
+  if(!text){alert('Please describe your decision flow first.');return;}
+  state.dtGenerating=true;
+  state.dtError='';
+  render();
+
+  const en=state.useCases.filter(u=>u.enabled).map(u=>u.name);
+  const sysPrompt=`You are a DealHub CPQ implementation architect. Extract decision tree nodes from a client's description of their quoting flow.
+Return ONLY a valid JSON array — no markdown, no explanation, no backticks.
+Each object must have exactly these keys: condition, trueOutcome, falseOutcome.
+- condition: a clear yes/no question (e.g. "Is this a partner deal?")
+- trueOutcome: what happens if YES (e.g. "Apply partner pricing and documents")
+- falseOutcome: what happens if NO (e.g. "Use standard customer pricing")
+Extract every distinct decision point mentioned. Keep conditions concise (max 8 words). Keep outcomes actionable (max 10 words).
+Context: enabled use cases are: ${en.length?en.join(', '):'none specified'}.`;
+
+  try{
+    const r=await fetch(PROXY_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-haiku-4-5-20251001',
+        max_tokens:800,
+        system:sysPrompt,
+        messages:[{role:'user',content:text}]
+      })
+    });
+    const d=await r.json();
+    if(d.error){state.dtError=d.error.message;state.dtGenerating=false;render();return;}
+    const raw=d.content?.[0]?.text||'[]';
+    let parsed;
+    try{parsed=JSON.parse(raw.replace(/```json|```/g,'').trim());}
+    catch(e){state.dtError='Could not parse AI response. Try rephrasing your description.';state.dtGenerating=false;render();return;}
+    if(!Array.isArray(parsed)||!parsed.length){state.dtError='No decision nodes found. Try adding more detail about branching conditions.';state.dtGenerating=false;render();return;}
+    state.decisionTree=parsed.map(p=>({id:uid(),condition:p.condition||'',trueOutcome:p.trueOutcome||'',falseOutcome:p.falseOutcome||'',notes:''}));
+    state.dtGenerated=true;
+    aiMessages.push({role:'ai',html:`I built a <strong>${state.decisionTree.length}-node flowchart</strong> from your description. Review the nodes on the left and edit anything that needs adjusting. Are there any decision points I missed?`});
+    showAINotif();
+    if(aiOpen)renderAIMessages();
+  }catch(e){
+    state.dtError='Could not reach the AI. Check your connection.';
+  }
+  state.dtGenerating=false;
+  render();
+}
+
+function buildFlowchart(nodes){
+  if(!nodes.length) return `<p style="font-size:12px;color:var(--dh-muted);text-align:center;padding:20px">No nodes yet — add some on the left.</p>`;
+
+  let html=`<div style="display:flex;flex-direction:column;align-items:center;gap:0;min-width:260px">`;
+
+  // Start node
+  html+=`<div style="background:var(--dh-primary);color:#0a1628;border-radius:20px;padding:6px 20px;font-size:11px;font-weight:700;margin-bottom:0">START</div>`;
+
+  nodes.forEach((n,i)=>{
+    const cond=n.condition||'Condition?';
+    const yes=n.trueOutcome||'Yes outcome';
+    const no=n.falseOutcome||'No outcome';
+
+    // Arrow down
+    html+=`<div style="width:2px;height:18px;background:var(--dh-primary);margin:0 auto"></div>`;
+
+    // Decision diamond (using a rotated square)
+    html+=`<div style="position:relative;width:140px;height:70px;margin:0 auto">
+      <div style="position:absolute;top:50%;left:50%;width:90px;height:90px;transform:translate(-50%,-50%) rotate(45deg);background:#0d2137;border:2px solid var(--dh-primary)"></div>
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:10px;text-align:center">
+        <span style="font-size:9px;font-weight:600;color:var(--dh-text);line-height:1.3;z-index:1">${esc(cond.length>40?cond.slice(0,40)+'…':cond)}</span>
+      </div>
+    </div>`;
+
+    // Branches
+    html+=`<div style="display:flex;width:280px;align-items:flex-start;gap:0;margin-top:0">`;
+
+    // Yes branch (left)
+    html+=`<div style="flex:1;display:flex;flex-direction:column;align-items:center">
+      <div style="display:flex;align-items:center;gap:0;width:100%">
+        <div style="width:2px;height:20px;background:var(--dh-primary);margin:0 auto"></div>
+      </div>
+      <span style="font-size:9px;font-weight:700;color:#3de8b0;background:rgba(61,232,176,0.1);border:1px solid rgba(61,232,176,0.3);border-radius:8px;padding:1px 6px;margin-bottom:5px">YES</span>
+      <div style="background:#0a1628;border:1px solid #1e3a5f;border-radius:6px;padding:7px 10px;font-size:10px;color:var(--dh-muted);text-align:center;max-width:120px;line-height:1.4">${esc(yes.length>45?yes.slice(0,45)+'…':yes)}</div>
+    </div>`;
+
+    // No branch (right)
+    html+=`<div style="flex:1;display:flex;flex-direction:column;align-items:center">
+      <div style="display:flex;align-items:center;gap:0;width:100%">
+        <div style="width:2px;height:20px;background:#f87171;margin:0 auto"></div>
+      </div>
+      <span style="font-size:9px;font-weight:700;color:#f87171;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);border-radius:8px;padding:1px 6px;margin-bottom:5px">NO</span>
+      <div style="background:#0a1628;border:1px solid #1e3a5f;border-radius:6px;padding:7px 10px;font-size:10px;color:var(--dh-muted);text-align:center;max-width:120px;line-height:1.4">${esc(no.length>45?no.slice(0,45)+'…':no)}</div>
+    </div>`;
+
+    html+=`</div>`;
+
+    // Connecting line to next node (except last)
+    if(i<nodes.length-1){
+      html+=`<div style="width:2px;height:14px;background:var(--dh-border);margin:6px auto 0"></div>`;
+    }
+  });
+
+  // End node
+  html+=`<div style="width:2px;height:14px;background:var(--dh-primary);margin:6px auto 0"></div>`;
+  html+=`<div style="background:#1a2d4a;color:var(--dh-muted);border-radius:20px;padding:6px 20px;font-size:11px;font-weight:700;margin-top:0">END</div>`;
+  html+=`</div>`;
+  return html;
+}
+
+function renderFlowchartOnly(){
+  const el=document.getElementById('flowchartContainer');
+  if(el) el.innerHTML=buildFlowchart(state.decisionTree);
+}
+
+// ══ S4 Approvals ═══════════════════════════════════════════════════════════
+function S4(){
+  const extracting=state.approvalsExtracting||false;
+  const freeText=state.approvalsFreeText||'';
+
+  const freeTextPanel=`
+<div style="background:#0a1628;border:1.5px solid var(--dh-primary);border-radius:10px;padding:16px;margin-bottom:20px">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+    <span style="font-size:16px">✍️</span>
+    <span style="font-size:13px;font-weight:600">Describe your approval process in plain English</span>
+  </div>
+  <p style="font-size:11px;color:var(--dh-muted);margin-bottom:10px;line-height:1.6">Just write how it works at your company — Claude will extract the structured rules automatically.</p>
+  <div style="background:#0f1f38;border-radius:6px;padding:10px 12px;font-size:11px;color:var(--dh-muted);margin-bottom:10px;line-height:1.7;border:1px solid var(--dh-border)">
+    <span style="color:var(--dh-primary);font-weight:500">Example: </span>"Any deal over $50K needs VP Sales approval. If we're giving more than 20% discount, Deal Desk needs to sign off. Legal must approve any changes to standard contract terms. For partner deals with margin above 25%, the Channel Manager approves."
+  </div>
+  <textarea class="textarea" id="approvalsFreeText" rows="4" placeholder="Write your approval rules here in plain English…" style="margin-bottom:10px;min-height:90px" oninput="state.approvalsFreeText=this.value">${esc(freeText)}</textarea>
+  <div style="display:flex;align-items:center;gap:10px">
+    <button class="btn btn-primary" onclick="extractApprovals()" ${extracting?'disabled':''} style="gap:8px">
+      ${extracting
+        ?'<span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;border:2px solid #0a1628;border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin 0.7s linear infinite"></span> Extracting…</span>'
+        :'🤖 Extract Rules with AI'}
+    </button>
+    ${state.approvalRules.length>0?`<span style="font-size:11px;color:var(--dh-muted)">✓ ${state.approvalRules.length} rule${state.approvalRules.length!==1?'s':''} extracted — edit below</span>`:''}
+  </div>
+  ${state.approvalsExtractError?`<div style="margin-top:8px;font-size:11px;color:#f87171">⚠️ ${esc(state.approvalsExtractError)}</div>`:''}
+</div>`;
+
+  const rules=state.approvalRules.length>0?`
+<div style="margin-bottom:6px">
+  <div style="font-size:12px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
+    <span>Extracted Rules <span style="font-weight:400;color:var(--dh-muted);font-size:11px">— review and edit</span></span>
+    <button class="btn" onclick="addRule()">+ Add Manually</button>
+  </div>
+  <div style="background:#0a1628;border-radius:8px;overflow:hidden;border:1px solid var(--dh-border)">
+    <div style="display:grid;grid-template-columns:1fr 1fr 90px 1fr 1fr 60px 32px;gap:0;padding:8px 10px;background:#0f1f38;border-bottom:1px solid var(--dh-border)">
+      ${['Reason','Criteria','Threshold','Approver','Additional','All/Any',''].map(h=>`<span style="font-size:10px;color:var(--dh-muted);font-weight:600">${h}</span>`).join('')}
+    </div>
+    ${state.approvalRules.map((r,i)=>`
+    <div style="display:grid;grid-template-columns:1fr 1fr 90px 1fr 1fr 60px 32px;gap:4px;padding:8px 10px;border-bottom:1px solid var(--dh-border);align-items:center${i%2===0?'':';background:#0d1c30'}">
+      <input class="inp" style="font-size:11px" value="${esc(r.reason)}" oninput="updRule('${r.id}','reason',this.value)" placeholder="Reason">
+      <input class="inp" style="font-size:11px" value="${esc(r.criteria)}" oninput="updRule('${r.id}','criteria',this.value)" placeholder="Criteria">
+      <input class="inp" style="font-size:11px" value="${esc(r.threshold)}" oninput="updRule('${r.id}','threshold',this.value)" placeholder="Threshold">
+      <input class="inp" style="font-size:11px" value="${esc(r.approver)}" oninput="updRule('${r.id}','approver',this.value)" placeholder="Approver">
+      <input class="inp" style="font-size:11px" value="${esc(r.additionalApprover)}" oninput="updRule('${r.id}','additionalApprover',this.value)" placeholder="Additional">
+      <select class="sel" style="font-size:11px" onchange="updRule('${r.id}','allAny',this.value)"><option${r.allAny==='All'?' selected':''}>All</option><option${r.allAny==='Any'?' selected':''}>Any</option></select>
+      <button class="btn btn-danger" style="padding:4px 6px;font-size:11px" onclick="rmRule('${r.id}')">✕</button>
+    </div>`).join('')}
+  </div>
+</div>`:`
+<div style="text-align:center;padding:20px;color:var(--dh-muted);font-size:12px;background:#0a1628;border-radius:8px;border:1px dashed var(--dh-border);margin-bottom:16px">
+  Extracted rules will appear here. Describe your process above and click <strong style="color:var(--dh-text)">Extract Rules with AI</strong>.
+</div>`;
+
+  const approvers=state.approvers.map(a=>`
+<div style="display:flex;gap:8px;margin-bottom:6px;align-items:center">
+  <input class="inp" placeholder="Full Name" value="${esc(a.name)}" oninput="updApprover('${a.id}','name',this.value)">
+  <input class="inp" placeholder="Email" value="${esc(a.email)}" oninput="updApprover('${a.id}','email',this.value)">
+  <input class="inp" placeholder="Position" value="${esc(a.position)}" oninput="updApprover('${a.id}','position',this.value)">
+  <button class="btn btn-danger" onclick="rmApprover('${a.id}')">✕</button>
+</div>`).join('');
+
+  return `
+<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+<div class="section-title">Approval Workflows</div>
+<div class="section-desc">Describe your approval process in your own words — Claude will structure it into rules automatically.</div>
+${freeTextPanel}
+${rules}
+<div style="border-top:1px solid var(--dh-border);padding-top:16px;margin-top:8px">
+  <div class="section-title">Approver Directory</div>
+  <div class="section-desc">List the people who may need to approve deals.</div>
+  ${uploadZoneHtml('approver','Import approvers from Excel','Name, Email, Position','approver')}
+  ${approvers}
+  <button class="btn" onclick="addApprover()">+ Add Approver</button>
+</div>`;
+}
+
+// ══ S5 Calculations ════════════════════════════════════════════════════════
+function S5(){
+  const needed=state.calculations.filter(c=>c.needed===true).length;
+  const skipped=state.calculations.filter(c=>c.needed===false).length;
+  const remaining=state.calculations.filter(c=>c.needed===null).length;
+
+  const cards=state.calculations.map(c=>{
+    const def=CALC_DEFS.find(d=>d.key===c.name)||{desc:'Custom calculation.'};
+    const isYes=c.needed===true,isNo=c.needed===false;
+    return `<div class="calc-card${isNo?' skipped':''}">
+  <div style="display:flex;flex-direction:column;gap:5px;padding-top:2px">
+    <button class="calc-toggle${isYes?' yes':''}" onclick="setCalc('${c.id}',true)" title="Yes">✓</button>
+    <button class="calc-toggle${isNo?' no':''}" onclick="setCalc('${c.id}',false)" title="Skip">✕</button>
+  </div>
+  <div style="flex:1">
+    <div style="font-size:13px;font-weight:600;margin-bottom:3px;display:flex;justify-content:space-between">
+      <span>${esc(c.name)}</span>
+      <span style="font-size:11px;font-weight:400">${isYes?'<span style="color:var(--dh-primary)">✓ Needed</span>':isNo?'<span style="color:#f87171">✕ Skipping</span>':'<span style="color:var(--dh-muted)">— Decide</span>'}</span>
+    </div>
+    <div style="font-size:11px;color:var(--dh-muted);line-height:1.5;margin-bottom:${isYes?'10px':'0'}">${def.desc}</div>
+    ${isYes?`<div style="display:flex;align-items:center;gap:8px">
+      <label style="font-size:11px;color:var(--dh-muted);white-space:nowrap">CRM field:</label>
+      <input class="inp" style="max-width:240px" placeholder="e.g. quote.ARR__c" value="${esc(c.crmField)}" oninput="updCalcField('${c.id}',this.value)">
+    </div>`:''}
+  </div>
+</div>`;}).join('');
+
+  return `
+<div class="section-title">Calculations</div>
+<div class="section-desc">Click ✓ to include a metric, ✕ to skip. Included ones can be mapped to a CRM field.</div>
+<div style="display:flex;gap:16px;font-size:12px;margin-bottom:14px">
+  <span style="color:var(--dh-primary)">✓ ${needed} needed</span>
+  <span style="color:#f87171">✕ ${skipped} skipped</span>
+  <span style="color:var(--dh-muted)">— ${remaining} undecided</span>
+</div>
+${cards}
+<button class="btn" onclick="addCustomCalc()" style="margin-top:8px">+ Add Custom Calculation</button>`;
+}
+
+// ══ S6 Terms ════════════════════════════════════════════════════════════════
+function S6(){
+  const rows=state.commercialTerms.map(t=>`
+<div class="term-row">
+  <div><div style="font-size:12px;font-weight:500">${esc(t.field)}</div><div style="font-size:10px;color:var(--dh-muted)">${esc(t.example)}</div></div>
+  <span></span>
+  <input class="inp" placeholder="Your values (comma separated)" value="${esc(t.values)}" oninput="updTerm('${t.id}',this.value)">
+  <button class="btn btn-danger" onclick="rmTerm('${t.id}')">✕</button>
+</div>`).join('');
+
+  return `
+<div class="section-title">Commercial Terms</div>
+<div class="section-desc">Specify the commercial terms and their accepted values for your deals.</div>
+${uploadZoneHtml('term','Import from Excel','Field, Example, Values','term')}
+${rows}
+<button class="btn" onclick="addTerm()" style="margin-top:8px">+ Add Other Term</button>`;
+}
+
+// ══ S7 Billing ══════════════════════════════════════════════════════════════
+function S7(){
+  const hdr=`<div style="display:grid;grid-template-columns:130px 1fr 100px 1fr;gap:6px;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--dh-border)">
+    ${['Field','Options / Values','Access','CRM Field'].map(h=>`<span style="font-size:10px;color:var(--dh-muted);font-weight:500">${h}</span>`).join('')}
+  </div>`;
+  const rows=(fields,side)=>fields.map(f=>`
+<div class="billing-row">
+  <span style="font-size:12px;font-weight:500">${esc(f.field)}</span>
+  <input class="inp" placeholder="Options" value="${esc(f.options)}" oninput="updBilling('${side}','${f.id}','options',this.value)">
+  <select class="sel" onchange="updBilling('${side}','${f.id}','readWrite',this.value)">
+    ${['Read','Write','Read/Write'].map(v=>`<option${f.readWrite===v?' selected':''}>${v}</option>`).join('')}
+  </select>
+  <input class="inp" placeholder="CRM field" value="${esc(f.crmField)}" oninput="updBilling('${side}','${f.id}','crmField',this.value)">
+</div>`).join('');
+
+  return `
+<div class="section-title">Seller Billing Fields</div>
+<div class="section-desc">Configure billing fields for the selling entity.</div>
+<div style="background:var(--dh-card);border:1px solid var(--dh-border);border-radius:8px;padding:10px;margin-bottom:16px">${hdr}${rows(state.sellerBillingFields,'seller')}</div>
+<div class="section-title">Buyer Billing Fields</div>
+<div class="section-desc">Configure billing fields for the buying entity.</div>
+<div style="background:var(--dh-card);border:1px solid var(--dh-border);border-radius:8px;padding:10px">${hdr}${rows(state.buyerBillingFields,'buyer')}</div>`;
+}
+
+// ══ S8 DealRoom ═════════════════════════════════════════════════════════════
+function S8(){
+  const assets=state.dealRoomAssets.map(a=>`
+<div class="asset-card">
+  <div class="row-header" style="margin-bottom:8px">
+    <span class="badge">${{form:'📋',brand_asset:'🎨',template:'📑',document:'📄',other:'📌'}[a.type]||'📌'} ${esc(a.name)||'Untitled'}</span>
+    <button class="btn btn-danger" onclick="rmAsset('${a.id}')">✕</button>
+  </div>
+  <div class="field-grid" style="margin-bottom:6px">
+    <input class="inp" placeholder="Asset Name" value="${esc(a.name)}" oninput="updAsset('${a.id}','name',this.value)">
+    <select class="sel" onchange="updAsset('${a.id}','type',this.value)">${['form','brand_asset','template','document','other'].map(v=>`<option value="${v}"${a.type===v?' selected':''}>${{form:'Form',brand_asset:'Brand Asset',template:'Template',document:'Document',other:'Other'}[v]}</option>`).join('')}</select>
+    <input class="inp" placeholder="File name" value="${esc(a.fileName)}" oninput="updAsset('${a.id}','fileName',this.value)">
+  </div>
+  <textarea class="textarea" rows="2" placeholder="Describe this asset…" oninput="updAsset('${a.id}','description',this.value)">${esc(a.description)}</textarea>
+  <div style="display:flex;align-items:center;gap:6px;margin-top:8px">
+    <label class="switch" style="transform:scale(0.85)"><input type="checkbox"${a.required?' checked':''} onchange="updAsset('${a.id}','required',this.checked)"><span class="slider"></span></label>
+    <span style="font-size:11px;color:var(--dh-muted)">Required</span>
+  </div>
+</div>`).join('');
+
+  return `
+<div class="section-title">DealRoom Configuration</div>
+<div class="section-desc">Define forms, brand assets, and templates for your DealRoom.</div>
+
+<div style="background:var(--dh-accent);border:1px solid rgba(61,232,176,0.2);border-radius:8px;padding:14px;margin-bottom:16px">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+    <span style="font-size:16px">✨</span>
+    <span style="font-size:13px;font-weight:600">See live DealRoom examples</span>
+  </div>
+  <p style="font-size:11px;color:var(--dh-muted);margin-bottom:10px">Not sure what a DealRoom looks like? Open one of these live examples before configuring your own.</p>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+    ${[
+      {label:'DealRoom Example 1',url:'https://go-dealroom.dealhub.io/dealhub#!/hub?dealGUID=VHYElo71PfkyaMqy'},
+      {label:'DealRoom Example 2',url:'https://go-dealroom.dealhub.io/dealhub#!/hub?dealGUID=ghYMSvexsvtpuc4s'},
+      {label:'DealRoom Example 3',url:'https://go-dealroom.dealhub.io/dealhub#!/hub?dealGUID=4gZLUfO7pkFHwrnG'},
+    ].map(e=>`<a href="${e.url}" target="_blank" rel="noopener noreferrer"
+      style="display:flex;align-items:center;justify-content:space-between;gap:6px;background:var(--dh-card);border:1px solid var(--dh-border);border-radius:6px;padding:9px 12px;text-decoration:none;color:var(--dh-text);font-size:12px;transition:all 0.15s"
+      onmouseover="this.style.borderColor='var(--dh-primary)';this.style.color='var(--dh-primary)'" onmouseout="this.style.borderColor='var(--dh-border)';this.style.color='var(--dh-text)'">
+      <span>${e.label}</span><span style="color:var(--dh-primary);font-size:11px">↗</span>
+    </a>`).join('')}
+  </div>
+</div>
+
+<div class="quick-add">
+  <div class="quick-btn" onclick="addAsset('form')"><div style="font-size:16px;margin-bottom:4px">📋</div><div style="font-size:12px;font-weight:500">+ Form</div><div style="font-size:10px;color:var(--dh-muted)">Order forms, intake</div></div>
+  <div class="quick-btn" onclick="addAsset('brand_asset')"><div style="font-size:16px;margin-bottom:4px">🎨</div><div style="font-size:12px;font-weight:500">+ Brand Asset</div><div style="font-size:10px;color:var(--dh-muted)">Logos, colors, fonts</div></div>
+  <div class="quick-btn" onclick="addAsset('template')"><div style="font-size:16px;margin-bottom:4px">📑</div><div style="font-size:12px;font-weight:500">+ Template</div><div style="font-size:10px;color:var(--dh-muted)">Proposals, SOW</div></div>
+</div>
+${uploadZoneHtml('asset','Import DealRoom assets from Excel','Name, Type, Description, File Name','asset')}
+${assets}
+<button class="btn" onclick="addAsset('document')">+ Add DealRoom Asset</button>`;
+}
+
+// ══ S9 Review ═══════════════════════════════════════════════════════════════
+function S9(){
+  const nc=state.calculations.filter(c=>c.needed===true).length;
+  const rows=[
+    {icon:'📦',title:'Products',n:state.skuCount||state.skus.length,sub:state.skuFileName||'no file'},
+    {icon:'⚙️',title:'Use Cases',n:state.useCases.filter(u=>u.enabled).length,sub:`of ${state.useCases.length}`},
+    {icon:'🔀',title:'Decisions',n:state.decisionTree.filter(d=>d.condition).length,sub:'nodes'},
+    {icon:'🛡️',title:'Approvals',n:state.approvalRules.filter(r=>r.reason).length,sub:`${state.approvers.filter(a=>a.name).length} approvers`},
+    {icon:'🔢',title:'Calculations',n:nc,sub:'confirmed'},
+    {icon:'📄',title:'Terms',n:state.commercialTerms.filter(t=>t.values).length,sub:'configured'},
+    {icon:'💳',title:'Billing',n:[...state.sellerBillingFields,...state.buyerBillingFields].filter(f=>f.options).length,sub:'mapped'},
+    {icon:'📊',title:'DealRoom',n:state.dealRoomAssets.filter(a=>a.name).length,sub:'assets'},
+  ];
+  const uc=state.useCases.filter(u=>u.enabled);
+  const generating=state.docGenerating||false;
+  return `
+<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;gap:8px;flex-wrap:wrap">
+  <div><div class="section-title">Review & Submit</div><div class="section-desc">Review your discovery before generating the design document.</div></div>
+  <button class="btn" onclick="exportData()">⬇️ Export Excel</button>
+</div>
+<div class="review-grid">
+  ${rows.map(r=>`<div class="review-card"><div style="width:30px;height:30px;background:var(--dh-accent);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">${r.icon}</div><div><div style="font-size:20px;font-weight:700;color:var(--dh-primary)">${r.n}</div><div style="font-size:12px">${r.title}</div><div style="font-size:11px;color:var(--dh-muted)">${r.sub}</div></div></div>`).join('')}
+</div>
+${uc.length?`<div style="margin-bottom:16px"><div style="font-size:13px;font-weight:500;margin-bottom:8px">Active Use Cases</div><div style="display:flex;flex-wrap:wrap;gap:4px">${uc.map(u=>`<span class="badge">✓ ${esc(u.name)}</span>`).join('')}</div></div>`:''}
+
+<div style="background:linear-gradient(135deg,#0d2137,#0f2a1e);border:1.5px solid var(--dh-primary);border-radius:12px;padding:20px;margin-bottom:16px">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+    <span style="font-size:24px">📋</span>
+    <div>
+      <div style="font-size:15px;font-weight:700;color:var(--dh-text)">Generate Design Document</div>
+      <div style="font-size:11px;color:var(--dh-muted);margin-top:2px">Claude will write a full implementation design document based on everything you've entered</div>
+    </div>
+  </div>
+  <ul style="font-size:11px;color:var(--dh-muted);padding-left:16px;line-height:1.9;margin-bottom:14px">
+    <li>Executive Summary — AI-written overview of the implementation scope</li>
+    <li>Full technical spec for each section with AI commentary</li>
+    <li>Implementation notes, risks, and recommendations</li>
+    <li>Opens as a printable page — save as PDF with Ctrl+P</li>
+  </ul>
+  <button class="btn btn-primary" onclick="generateDesignDoc()" ${generating?'disabled':''} style="font-size:13px;padding:10px 20px;gap:8px">
+    ${generating
+      ?'<span style="display:flex;align-items:center;gap:8px"><span style="width:14px;height:14px;border:2px solid #0a1628;border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin 0.7s linear infinite"></span> Generating document…</span>'
+      :'🤖 Generate Design Document (PDF)'}
+  </button>
+  ${state.docError?`<div style="margin-top:10px;font-size:11px;color:#f87171">⚠️ ${esc(state.docError)}</div>`:''}
+</div>
+
+<div style="background:var(--dh-accent);border-radius:8px;padding:12px;border:1px solid rgba(61,232,176,0.2)">
+  <p style="font-size:12px"><strong>Also submit?</strong> <span style="color:var(--dh-muted)">Click "Submit Discovery" to mark this as complete and notify your CSM.</span></p>
+</div>`;
+}
+
+// ── Design Document Generator ─────────────────────────────────────────────
+async function generateDesignDoc(){
+  state.docGenerating=true;
+  state.docError='';
+  render();
+
+  // Build comprehensive context for Claude
+  const en=state.useCases.filter(u=>u.enabled);
+  const calcs=state.calculations.filter(c=>c.needed===true).map(c=>c.crmField?`${c.name} → ${c.crmField}`:c.name);
+  const terms=state.commercialTerms.filter(t=>t.values).map(t=>`${t.field}: ${t.values}`);
+  const rules=state.approvalRules.filter(r=>r.reason).map(r=>`${r.reason} | Criteria: ${r.criteria} | Threshold: ${r.threshold} | Approver: ${r.approver}${r.additionalApprover?' + '+r.additionalApprover:''} | ${r.allAny}`);
+  const dtNodes=state.decisionTree.filter(n=>n.condition).map((n,i)=>`Node ${i+1}: IF "${n.condition}" → YES: "${n.trueOutcome}" | NO: "${n.falseOutcome}"`);
+  const sellerBilling=state.sellerBillingFields.filter(f=>f.options||f.crmField).map(f=>`${f.field} (${f.readWrite}${f.crmField?' → '+f.crmField:''}${f.options?' | Options: '+f.options:''})`);
+  const buyerBilling=state.buyerBillingFields.filter(f=>f.options||f.crmField).map(f=>`${f.field} (${f.readWrite}${f.crmField?' → '+f.crmField:''}${f.options?' | Options: '+f.options:''})`);
+  const assets=state.dealRoomAssets.filter(a=>a.name).map(a=>`${a.name} | Type: ${a.type}${a.description?' | '+a.description:''}${a.required?' | Required':''}`);
+  const ucDetails=en.map(u=>`${u.name}${u.details?': '+u.details:' (no detail provided)'}`);
+
+  const context=`
+=== DISCOVERY DATA ===
+CLIENT: ${state.clientName||'(not specified)'}
+DATE: ${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}
+
+--- PRODUCTS ---
+Catalog: ${state.skuFileName?`${state.skuFileName} — ${state.skuCount} SKUs`:'Not uploaded'}
+Multi-Currency: ${state.multiCurrency?`Yes | Source: ${state.exchangeRateSource}${state.currencies.length?' | Currencies: '+state.currencies.map(c=>c.currency).filter(Boolean).join(', '):''}` :'No'}
+
+--- USE CASES (${en.length} enabled) ---
+${ucDetails.length?ucDetails.map(u=>`• ${u}`).join('\n'):'None enabled'}
+${state.useCasesContext?`\nClient Context: "${state.useCasesContext}"`:''}
+
+--- DECISION TREE ---
+Client description: ${state.dtFreeText||'(not provided)'}
+Generated nodes (${dtNodes.length}):
+${dtNodes.length?dtNodes.map(n=>`• ${n}`).join('\n'):'None'}
+External diagram: ${state.followUpAnswers['dt_link']||'None'}
+
+--- APPROVAL WORKFLOWS ---
+${state.approvalsFreeText?`Client description: "${state.approvalsFreeText}"\n`:''}
+Rules (${rules.length}):
+${rules.length?rules.map(r=>`• ${r}`).join('\n'):'None defined'}
+Approver directory (${state.approvers.filter(a=>a.name).length}):
+${state.approvers.filter(a=>a.name).map(a=>`• ${a.name} | ${a.position} | ${a.email}`).join('\n')||'None listed'}
+
+--- CALCULATIONS ---
+${calcs.length?calcs.map(c=>`• ${c}`).join('\n'):'None confirmed'}
+
+--- COMMERCIAL TERMS ---
+${terms.length?terms.map(t=>`• ${t}`).join('\n'):'None filled'}
+
+--- BILLING FIELDS ---
+Seller fields: ${sellerBilling.length?'\n'+sellerBilling.map(f=>`• ${f}`).join('\n'):'None mapped'}
+Buyer fields: ${buyerBilling.length?'\n'+buyerBilling.map(f=>`• ${f}`).join('\n'):'None mapped'}
+
+--- DEALROOM ---
+Assets (${assets.length}):
+${assets.length?assets.map(a=>`• ${a}`).join('\n'):'None configured'}
+
+--- AI ADVISOR NOTES ---
+${aiMessages.filter(m=>m.role==='ai').slice(1,8).map(m=>m.html.replace(/<[^>]+>/g,'')).join('\n')||'None'}
+`.trim();
+
+  const sysPrompt=`You are a senior DealHub Solution Architect with 10+ years of CPQ implementation experience. You are writing a formal Configuration Design Document (CDD) that will be used by the implementation team to configure DealHub for a new client.
+
+=== DEALHUB PLATFORM KNOWLEDGE ===
+
+PRODUCT CATALOG & PRICING:
+- SKUs have: Code, Name, Description, Type (License/Services/Support/Hardware), UoM, Billing Frequency (Monthly/Annual/One-time), List Price, Cost
+- Price Books: multiple price books for different segments (e.g. Direct, Partner, Enterprise)
+- Pricing rules: flat, tiered, volume-based, usage-based
+- Multi-currency: exchange rates managed in DealHub or synced from CRM/ERP
+
+USE CASES (DealHub-specific implementation details):
+- Multi Year: configured via Quote Sections per year, each with its own pricing schedule; CPI applied as a % uplift on year 2+
+- Ramp Up: quantity ramp table per term; total commitment locked at signature but billing follows ramp
+- Partner Deals: separate price book + partner-specific document templates; partner margin visibility controlled by role
+- Trials/PoC: trial product type with $0 or discounted pricing; auto-conversion trigger via workflow
+- Overage: usage tracking field on quote line; overage rate defined as multiplier of committed unit price
+- Pay As You Go: tariff table in DealHub; minimum commit as a floor price; monthly billing in arrears
+- CPI: annual uplift % configured per product or quote; waiver requires approval workflow
+- Redline: DealHub DocEditor integration; clause library; tracked changes; role-based edit permissions
+- Optional Products: separate product section marked "optional"; excluded from deal total; buyer accepts in DealRoom
+- One-time Discount: negative line item type; discount cap enforced via approval rule
+- Integrations: CRM (Salesforce/HubSpot) for opportunity sync; DocuSign for e-signature; Slack/Gong for notifications; SSO via SAML
+
+APPROVAL WORKFLOWS:
+- Approval rules: condition-based triggers (field = value, field > threshold)
+- Approval types: sequential chain, parallel, any-one-of
+- Escalation: timeout-based escalation to secondary approver
+- Auto-approval: configure thresholds below which deals auto-approve
+- Delegation: out-of-office delegation to named substitute
+
+CALCULATIONS & CRM MAPPING:
+- Calculated fields: ARR, MRR, ACV, TCV, Margins, Total One-time, Total Recurring, VAT, Tax, Total Cost
+- Formulas reference quote line fields: Item.listPrice, Item.netPrice, Item.quantity, Quote.duration
+- CRM sync: mapped to Opportunity or custom fields via field mapping configuration
+- Proration: mid-term calculation for add-ons and amendments
+
+COMMERCIAL TERMS:
+- Configured as picklist fields on the Quote object
+- Default values configurable per segment or product type
+- Term override requires approval if outside allowed values
+
+BILLING FIELDS:
+- Seller fields: pulled from legal entity configuration or CRM account
+- Buyer fields: synced from CRM or entered manually; validation rules configurable
+- Read = pulled from CRM, not editable by rep; Write = rep can enter/edit; Read/Write = both
+
+DEALROOM:
+- Customer-facing deal portal; branded with client logo and colours
+- Sections: Proposal, Pricing, Contract, Forms, Content
+- Forms: custom intake forms with conditional logic; data syncs back to CRM
+- E-signature: embedded DocuSign or native DealHub signature
+- Analytics: buyer engagement tracking (time spent, sections viewed)
+
+IMPLEMENTATION PHASES (standard):
+1. Discovery & Design (this document)
+2. Environment Setup (sandbox + production)
+3. Product Catalog & Pricing configuration
+4. Quote Template & DealRoom design
+5. Workflow & Approval configuration
+6. CRM Integration & field mapping
+7. UAT (User Acceptance Testing)
+8. Go-live & hypercare
+
+=== DOCUMENT INSTRUCTIONS ===
+Write a comprehensive Configuration Design Document. Be specific — reference actual data from the discovery. If data is missing, flag it clearly as [ACTION REQUIRED] or [TBC].
+
+Structure:
+1. Executive Summary (2-3 paragraphs: scope, complexity, key decisions, go-live readiness)
+2. Implementation Scope Overview (table: feature, status, complexity, notes)
+3. Product Catalog Design (pricing structure, SKU types, currency setup, recommendations)
+4. Use Case Configuration (one subsection per enabled use case with: description, DealHub configuration approach, open questions)
+5. Quoting Flow & Decision Logic (describe the flow, list each decision node, flag any gaps)
+6. Approval Workflow Design (approval matrix table, escalation rules, open questions)
+7. Calculations & CRM Field Mapping (table: metric, formula approach, CRM field, status)
+8. Commercial Terms Configuration (table: term, configured values, default, notes)
+9. Billing Field Configuration (seller table, buyer table, CRM mapping status)
+10. DealRoom Design (assets list, branding requirements, form logic, open items)
+11. Integration Architecture (list each integration, type, direction, priority)
+12. Implementation Risks & Recommendations (table: risk, impact, mitigation)
+13. Open Items & Next Steps (numbered action list with owners)
+
+Tone: authoritative, technical, precise. Written for a DealHub implementation team.
+Format: return clean HTML fragment only (no html/head/body tags). Use: h1, h2, h3, p, table, thead, tbody, tr, th, td, ul, li, strong, em, div, hr, span.
+Tables: use style="width:100%;border-collapse:collapse" on table. th gets style="background:#0a1628;color:#fff;padding:8px 12px;text-align:left". td gets style="padding:7px 12px;border-bottom:1px solid #e8edf5;vertical-align:top".
+Status badges: use span with appropriate colour (green=#e8f5f0/color:#0f6e56, amber=#fff8e6/color:#b36b00, red=#fef2f2/color:#b91c1c).
+[ACTION REQUIRED] items: wrap in span style="background:#fef2f2;color:#b91c1c;padding:1px 6px;border-radius:4px;font-size:11px;font-weight:600".`;
+
+  try{
+    const r=await fetch(PROXY_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-6',
+        max_tokens:4000,
+        system:sysPrompt,
+        messages:[{role:'user',content:`Write the full Configuration Design Document for this discovery data:\n\n${context}`}]
+      })
+    });
+    const d=await r.json();
+    if(d.error){state.docError=d.error.message;state.docGenerating=false;render();return;}
+    const docHtml=d.content?.[0]?.text||'';
+    state.docGenerating=false;
+    render();
+    openDesignDoc(docHtml);
+  }catch(e){
+    state.docError='Could not reach the AI. Check your connection.';
+    state.docGenerating=false;
+    render();
+  }
+}
+
+function openDesignDoc(contentHtml){
+  const client=state.clientName||'Client';
+  const date=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
+  const html=`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>DealHub Design Document — ${client}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Arial,sans-serif;background:#fff;color:#1a1a2e;font-size:13px;line-height:1.7;padding:0}
+  .cover{background:linear-gradient(135deg,#0a1628,#0f2a1e);color:#fff;padding:60px 60px 50px;min-height:260px;display:flex;flex-direction:column;justify-content:flex-end}
+  .cover-logo{font-size:13px;font-weight:700;color:#3de8b0;letter-spacing:2px;text-transform:uppercase;margin-bottom:40px}
+  .cover h1{font-size:32px;font-weight:800;color:#fff;margin-bottom:8px;line-height:1.2}
+  .cover-sub{font-size:14px;color:rgba(255,255,255,0.6);margin-bottom:4px}
+  .cover-date{font-size:12px;color:#3de8b0;margin-top:20px}
+  .cover-badge{display:inline-block;background:rgba(61,232,176,0.15);border:1px solid rgba(61,232,176,0.4);color:#3de8b0;border-radius:20px;padding:4px 14px;font-size:11px;font-weight:600;margin-top:10px}
+  .body{padding:48px 60px;max-width:900px;margin:0 auto}
+  h1{font-size:22px;font-weight:800;color:#0a1628;margin:36px 0 10px;padding-bottom:8px;border-bottom:2px solid #3de8b0}
+  h2{font-size:16px;font-weight:700;color:#0a1628;margin:28px 0 8px}
+  h3{font-size:13px;font-weight:700;color:#1e3a5f;margin:20px 0 6px;text-transform:uppercase;letter-spacing:0.5px}
+  p{margin-bottom:10px;color:#333;line-height:1.75}
+  ul,ol{padding-left:20px;margin-bottom:12px}
+  li{margin-bottom:4px;color:#333}
+  table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:12px}
+  th{background:#0a1628;color:#fff;padding:8px 12px;text-align:left;font-weight:600}
+  td{padding:7px 12px;border-bottom:1px solid #e8edf5;vertical-align:top}
+  tr:nth-child(even) td{background:#f7f9fc}
+  strong{color:#0a1628;font-weight:700}
+  hr{border:none;border-top:1px solid #e8edf5;margin:28px 0}
+  .badge{display:inline-block;background:#e8f5f0;color:#0f6e56;border-radius:10px;padding:2px 10px;font-size:11px;font-weight:600;margin-right:4px;margin-bottom:3px}
+  .badge-warn{background:#fff8e6;color:#b36b00}
+  .badge-gray{background:#f0f2f5;color:#555}
+  .note{background:#f0faf6;border-left:3px solid #3de8b0;padding:10px 14px;border-radius:0 6px 6px 0;margin:12px 0;font-size:12px;color:#1a4a35}
+  .warn{background:#fff8e6;border-left:3px solid #f0a500;padding:10px 14px;border-radius:0 6px 6px 0;margin:12px 0;font-size:12px;color:#7a4a00}
+  .footer-bar{background:#0a1628;color:rgba(255,255,255,0.4);font-size:10px;text-align:center;padding:12px;margin-top:48px}
+  @media print{
+    .no-print{display:none!important}
+    .cover{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    th{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    body{padding:0}
+    .body{padding:32px 40px}
+  }
+</style>
+</head>
+<body>
+<div class="cover">
+  <div class="cover-logo">DealHub · Configuration Design Document</div>
+  <h1>${client}</h1>
+  <div class="cover-sub">CPQ Platform Configuration Design</div>
+  <div class="cover-sub">Prepared by DealHub Professional Services</div>
+  <div class="cover-date">${date}</div>
+  <div><span class="cover-badge">CONFIDENTIAL</span></div>
+</div>
+<div class="body">
+<div class="no-print" style="background:#f0faf6;border:1px solid #3de8b0;border-radius:8px;padding:12px 16px;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;font-size:12px;color:#1a4a35">
+  <span>📄 To save as PDF: press <strong>Ctrl+P</strong> (Windows) or <strong>Cmd+P</strong> (Mac) → choose <strong>"Save as PDF"</strong></span>
+  <button onclick="window.print()" style="background:#0a1628;color:#3de8b0;border:none;border-radius:6px;padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer">🖨️ Print / Save PDF</button>
+</div>
+${contentHtml}
+</div>
+<div class="footer-bar">DealHub Configuration Design Document · ${client} · Generated ${date} · Confidential</div>
+</body>
+</html>`;
+
+  const win=window.open('','_blank');
+  if(win){
+    win.document.write(html);
+    win.document.close();
+  }else{
+    // Fallback: download as HTML file
+    const blob=new Blob([html],{type:'text/html'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=`DealHub_Design_Document_${client.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.html`;
+    a.click();
+  }
+}
+
+function renderSuccess(){
+  document.getElementById('mainContent').innerHTML=`<div class="card"><div class="success-screen">
+  <div style="width:64px;height:64px;border-radius:50%;background:var(--dh-accent);display:flex;align-items:center;justify-content:center;font-size:28px;margin-bottom:16px">✅</div>
+  <h2 style="font-size:22px;font-weight:700;margin-bottom:8px">Discovery Complete!</h2>
+  <p style="font-size:13px;color:var(--dh-muted);max-width:380px;margin-bottom:24px">Your DealHub CSM will review this and prepare a configuration design. Excel exported to your Downloads.</p>
+  <button class="btn btn-primary" onclick="resetApp()">Start New Discovery</button>
+</div></div>`;
+  document.getElementById('footer').innerHTML='';
+  document.getElementById('stepsBar').innerHTML='';
+  document.getElementById('aiBtn').style.display='none';
+}
+
+function renderFooter(){
+  const last=state.step===STEPS.length-1;
+  document.getElementById('footer').innerHTML=`
+<button class="btn" onclick="prevStep()" ${state.step===0?'disabled':''}>← Previous</button>
+<span style="font-size:12px;color:var(--dh-muted)">Step ${state.step+1} of ${STEPS.length}</span>
+${last?`<button class="btn btn-primary" onclick="submitForm()">✉️ Submit Discovery</button>`:`<button class="btn btn-primary" onclick="nextStep()">Next →</button>`}`;
+}
+
+function nextStep(){if(state.step<STEPS.length-1){state.step++;render();window.scrollTo(0,0);}}
+function prevStep(){if(state.step>0){state.step--;render();}}
+function submitForm(){exportData();state.submitted=true;render();}
+
+// ── CRUD ──────────────────────────────────────────────────────────────────
+function addCur(){state.currencies.push({id:uid(),currency:'',conversionRate:''});render();}
+function rmCur(id){state.currencies=state.currencies.filter(c=>c.id!==id);render();}
+function updCur(id,f,v){state.currencies=state.currencies.map(c=>c.id===id?{...c,[f]:v}:c);}
+function clearSku(){state.skuFileName='';state.skuCount=0;state.skus=[];render();}
+function addDT(){state.decisionTree.push({id:uid(),condition:'',trueOutcome:'',falseOutcome:'',notes:''});render();}
+function rmDT(id){state.decisionTree=state.decisionTree.filter(n=>n.id!==id);render();}
+function updDT(id,f,v){state.decisionTree=state.decisionTree.map(n=>n.id===id?{...n,[f]:v}:n);}
+function addRule(){state.approvalRules.push({id:uid(),reason:'',criteria:'',threshold:'',approver:'',additionalApprover:'',allAny:'Any'});render();}
+function rmRule(id){state.approvalRules=state.approvalRules.filter(r=>r.id!==id);render();}
+function updRule(id,f,v){state.approvalRules=state.approvalRules.map(r=>r.id===id?{...r,[f]:v}:r);}
+function addExRule(e){state.approvalRules.push({id:uid(),reason:e.reason||'',criteria:e.criteria||'',threshold:e.threshold||'',approver:e.approver||'',additionalApprover:'',allAny:'Any'});render();}
+
+async function extractApprovals(){
+  const text=(state.approvalsFreeText||'').trim();
+  if(!text){alert('Please describe your approval process first.');return;}
+  state.approvalsExtracting=true;
+  state.approvalsExtractError='';
+  render();
+
+  const sysPrompt=`You are a CPQ configuration expert. Extract approval rules from the user's free-text description.
+Return ONLY a valid JSON array — no markdown, no explanation, no backticks.
+Each object must have exactly these keys: reason, criteria, threshold, approver, additionalApprover, allAny.
+- reason: short label (e.g. "Discount", "Deal Size", "Non-standard Terms")
+- criteria: what is being measured (e.g. "Total Discount %", "TCV", "Contract edited")
+- threshold: the trigger value (e.g. "> 15%", "> $50K", "Any change")
+- approver: primary approver name/role
+- additionalApprover: secondary approver if mentioned, else empty string
+- allAny: "All" if all approvers must approve, "Any" if any one can approve — default to "Any"
+Extract every distinct rule mentioned. If a rule is implied (e.g. "manager approves discounts") make reasonable assumptions.`;
+
+  try{
+    const r=await fetch(PROXY_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-haiku-4-5-20251001',
+        max_tokens:600,
+        system:sysPrompt,
+        messages:[{role:'user',content:text}]
+      })
+    });
+    const d=await r.json();
+    if(d.error){state.approvalsExtractError=d.error.message;state.approvalsExtracting=false;render();return;}
+    const raw=d.content?.[0]?.text||'[]';
+    let parsed;
+    try{
+      parsed=JSON.parse(raw.replace(/```json|```/g,'').trim());
+    }catch(e){
+      state.approvalsExtractError='Could not parse AI response. Try rephrasing your description.';
+      state.approvalsExtracting=false;render();return;
+    }
+    if(!Array.isArray(parsed)||!parsed.length){
+      state.approvalsExtractError='No rules found. Try being more specific (e.g. mention thresholds and approver names).';
+      state.approvalsExtracting=false;render();return;
+    }
+    state.approvalRules=parsed.map(p=>({
+      id:uid(),
+      reason:p.reason||'',
+      criteria:p.criteria||'',
+      threshold:p.threshold||'',
+      approver:p.approver||'',
+      additionalApprover:p.additionalApprover||'',
+      allAny:p.allAny||'Any'
+    }));
+    // Also push a follow-up into the AI advisor
+    aiMessages.push({role:'ai',html:`I extracted <strong>${state.approvalRules.length} approval rule${state.approvalRules.length!==1?'s':''}</strong> from your description. Review them below — do any need adjusting? Also, are there any edge cases I might have missed, like out-of-office escalations or auto-approval scenarios?`});
+    showAINotif();
+    if(aiOpen)renderAIMessages();
+  }catch(e){
+    state.approvalsExtractError='Could not reach the AI. Check your connection.';
+  }
+  state.approvalsExtracting=false;
+  render();
+}
+function addApprover(){state.approvers.push({id:uid(),name:'',email:'',position:''});render();}
+function rmApprover(id){state.approvers=state.approvers.filter(a=>a.id!==id);render();}
+function updApprover(id,f,v){state.approvers=state.approvers.map(a=>a.id===id?{...a,[f]:v}:a);}
+function setCalc(id,val){state.calculations=state.calculations.map(c=>c.id===id?{...c,needed:val}:c);render();}
+function updCalcField(id,v){state.calculations=state.calculations.map(c=>c.id===id?{...c,crmField:v}:c);}
+function addCustomCalc(){const n=prompt('Calculation name:');if(n&&n.trim()){state.calculations.push({id:uid(),name:n.trim(),needed:null,crmField:''});render();}}
+function updTerm(id,v){state.commercialTerms=state.commercialTerms.map(t=>t.id===id?{...t,values:v}:t);}
+function rmTerm(id){state.commercialTerms=state.commercialTerms.filter(t=>t.id!==id);render();}
+function addTerm(){const n=prompt('Term name:');if(n&&n.trim()){state.commercialTerms.push({id:uid(),field:n.trim(),example:'',values:''});render();}}
+function updBilling(side,id,f,v){const k=side==='seller'?'sellerBillingFields':'buyerBillingFields';state[k]=state[k].map(x=>x.id===id?{...x,[f]:v}:x);}
+function addAsset(type){state.dealRoomAssets.push({id:uid(),name:'',type:type||'form',description:'',fileName:'',required:false});render();}
+function rmAsset(id){state.dealRoomAssets=state.dealRoomAssets.filter(a=>a.id!==id);render();}
+function updAsset(id,f,v){state.dealRoomAssets=state.dealRoomAssets.map(a=>a.id===id?{...a,[f]:v}:a);}
+
+// ── Export ─────────────────────────────────────────────────────────────────
+function exportData(){
+  if(typeof XLSX==='undefined'){alert('XLSX library not loaded.');return;}
+  const wb=XLSX.utils.book_new();
+  const add=(name,data)=>{if(data&&data.length){XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(data),name);}};
+  if(state.skus.length) add('Products',state.skus.map(({id,...r})=>r));
+  else if(state.skuFileName) add('Products',[{note:`Uploaded: ${state.skuFileName} (${state.skuCount} rows)`}]);
+  add('Use Cases',state.useCases.filter(u=>u.enabled).map(u=>({name:u.name,description:u.desc})));
+  add('Decision Tree',state.decisionTree.map(({id,...r})=>r));
+  add('Approval Rules',state.approvalRules.map(({id,...r})=>r));
+  add('Approvers',state.approvers.map(({id,...r})=>r));
+  add('Calculations',state.calculations.filter(c=>c.needed===true).map(c=>({name:c.name,crmField:c.crmField})));
+  add('Commercial Terms',state.commercialTerms.filter(t=>t.values).map(({id,...r})=>r));
+  const billing=[...state.sellerBillingFields.map(f=>({...f,side:'Seller'})),...state.buyerBillingFields.map(f=>({...f,side:'Buyer'}))].filter(f=>f.options||f.crmField);
+  add('Billing Fields',billing.map(({id,...r})=>r));
+  add('DealRoom Assets',state.dealRoomAssets.map(({id,...r})=>r));
+  // Export AI conversation as notes
+  if(aiMessages.length>1) add('AI Advisor Notes',aiMessages.map((m,i)=>({turn:i+1,role:m.role==='ai'?'Advisor':'Client',message:(m.html||m.text||'').replace(/<[^>]+>/g,'')})));
+  if(!wb.SheetNames.length) add('Summary',[{note:'No data entered yet'}]);
+  XLSX.writeFile(wb,`Discovery_${state.clientName||'Unnamed'}_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+function resetApp(){
+  state=freshState();
+  aiMessages=[{role:'ai',html:'👋 Hi! I\'m your <strong>CPQ Configuration Advisor</strong>. I\'ll guide you through each step. Click any step to get started!'}];
+  aiStepSeen=new Set();
+  document.getElementById('clientNameInp').value='';
+  document.getElementById('aiBtn').style.display='flex';
+  render();
+}
+
+// ── Excel import ────────────────────────────────────────────────────────────
+const CMAPS={
+  sku:{sku:'sku','sku code':'sku',name:'name','product name':'name',description:'description',type:'type',uom:'uom','unit of measure':'uom','base line':'baseline',baseline:'baseline','list price':'listPrice',listprice:'listPrice',price:'listPrice',cost:'cost'},
+  approval:{reason:'reason',criteria:'criteria',threshold:'threshold',approver:'approver','additional approver':'additionalApprover','all any':'allAny'},
+  approver:{name:'name','full name':'name',email:'email',position:'position',role:'position'},
+  term:{field:'field',term:'field',name:'field',example:'example',values:'values',options:'values'},
+  dt:{condition:'condition',question:'condition','true outcome':'trueOutcome',yes:'trueOutcome','false outcome':'falseOutcome',no:'falseOutcome',notes:'notes'},
+  asset:{name:'name','asset name':'name',type:'type',description:'description','file name':'fileName',filename:'fileName'},
+};
+function nh(h){return h.trim().toLowerCase().replace(/[^a-z ]/g,'');}
+function parseXL(file,type,cb,msgId){
+  const r=new FileReader();
+  r.onload=e=>{
+    try{
+      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+      const json=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});
+      if(!json.length){showMsg(msgId,'⚠️ File empty',1);return;}
+      const cm=CMAPS[type]||{};
+      const map={};Object.keys(json[0]).forEach(h=>{const k=nh(h);if(cm[k])map[h]=cm[k];});
+      const rows=json.map(row=>{const item={id:uid()};Object.entries(map).forEach(([h,f])=>{if(row[h]!==undefined)item[f]=String(row[h]);});return item;});
+      cb(rows,file,json.length);
+      showMsg(msgId,`✓ ${rows.length} rows imported`);
+    }catch(err){showMsg(msgId,'⚠️ '+err.message,1);}
+  };
+  r.readAsArrayBuffer(file);
+}
+function showMsg(id,msg,err){const el=document.getElementById(id);if(!el)return;el.textContent=msg;el.style.color=err?'#f87171':'var(--dh-primary)';if(!err)setTimeout(()=>{if(el)el.textContent='';},5000);}
+function handleDrop(e,type){e.preventDefault();e.currentTarget.style.borderColor='';const f=e.dataTransfer.files[0];if(f)processFile(f,type);}
+function handleInput(inp,type){const f=inp.files[0];if(f)processFile(f,type);inp.value='';}
+function processFile(file,type){
+  if(!/\.(xlsx|xls|csv)$/i.test(file.name)){alert('Please upload .xlsx, .xls, or .csv');return;}
+  if(type==='sku'){parseXL(file,'sku',(rows,f,count)=>{state.skus=rows;state.skuFileName=f.name;state.skuCount=count;render();},'skuImportMsg');return;}
+  const h={approval:(rows)=>{state.approvalRules=[...state.approvalRules,...rows];render();},approver:(rows)=>{state.approvers=[...state.approvers,...rows];render();},term:(rows)=>{state.commercialTerms=[...state.commercialTerms,...rows];render();},dt:(rows)=>{state.decisionTree=[...state.decisionTree,...rows];render();},asset:(rows)=>{state.dealRoomAssets=[...state.dealRoomAssets,...rows];render();}};
+  if(h[type])parseXL(file,type,h[type],type+'ImportMsg');
+}
+function uploadZoneHtml(type,label,hint,suf){
+  return `<div class="upload-zone" onclick="document.getElementById('fi_${suf}').click()" ondragover="event.preventDefault();this.style.borderColor='var(--dh-primary)'" ondragleave="this.style.borderColor=''" ondrop="handleDrop(event,'${type}')">
+<input type="file" id="fi_${suf}" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleInput(this,'${type}')">
+<div style="font-size:16px;margin-bottom:4px">📊</div>
+<p style="font-size:12px;font-weight:500">${label}</p>
+<p style="font-size:11px;color:var(--dh-muted)">${hint}</p>
+<div id="${suf}ImportMsg" style="margin-top:5px;font-size:11px"></div>
+</div>`;
+}
+
+render();
+</script>
+</body>
+</html>
