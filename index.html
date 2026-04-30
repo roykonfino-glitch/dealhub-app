@@ -1706,6 +1706,8 @@ function buildDocPage(html, autoPrint=false){
     +'<div class="footer-bar"><span>DealHub CPQ \u00b7 Configuration Design Document</span><span>'+co+' \u00b7 '+dt+'</span><span>Confidential</span></div>'
     +'</body></html>';
 }
+
+function openDoc(html){
   const pg=buildDocPage(html, false);
   const w=window.open('','_blank');
   if(w){w.document.write(pg);w.document.close();}
