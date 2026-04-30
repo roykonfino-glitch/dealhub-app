@@ -1417,7 +1417,7 @@ WRITE ALL 8 SECTIONS — be specific, use real names/values from the data, refer
 8. UAT Checklist: 10 rows with SPECIFIC scenarios referencing actual values — e.g. "Test [AE role] discounting at [threshold]% routes to [approver name]", "Test [product family name] products appear with [pricing model] on quote" (Test Scenario | Steps | Expected Outcome | Priority)`;
 
   try{
-    const res=await fetch(PX,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1000,system:sys,messages:[{role:'user',content:`Generate the full Configuration Design Document:\n\n${ctx}`}]})});
+    const res=await fetch(PX,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:8000,system:sys,messages:[{role:'user',content:`Generate the full Configuration Design Document:\n\n${ctx}`}]})});
     const text=await res.text();
     if(!res.ok){st.docError=`HTTP ${res.status}: ${text.slice(0,200)}`;st.docGenerating=false;render();return;}
     let d;
@@ -1840,7 +1840,7 @@ Return exactly 14 items. DH owns build tasks. Client owns sign-offs and UAT.`;
   try{
     const res=await fetch(PX,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
       model:'claude-haiku-4-5-20251001',
-      max_tokens:1000,
+      max_tokens:2000,
       system:sys,
       messages:[{role:'user',content:ctx}]
     })});
@@ -1853,11 +1853,17 @@ Return exactly 14 items. DH owns build tasks. Client owns sign-offs and UAT.`;
     if(!raw){st.planError='Empty response — try again';st.planLoading=false;render();return;}
     console.log('genProjectPlan raw response:', raw);
     try {
-      let jsonStr = raw.match(/\[[\s\S]*\]/)?.[0] || raw;
-      jsonStr = jsonStr.replace(/'/g, '"').replace(/,(\s*[}\]])/g, '$1');
-      st.projectPlan = JSON.parse(jsonStr);
+      const jsonStr = raw.match(/\[[\s\S]*\]/)?.[0] || raw;
+      try {
+        st.projectPlan = JSON.parse(jsonStr);
+      } catch(e1) {
+        const cleaned = jsonStr
+          .replace(/,(\s*[}\]])/g, '$1')
+          .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)(\s*):/g, '$1"$2"$3:');
+        st.projectPlan = JSON.parse(cleaned);
+      }
     } catch(e) {
-      st.planError = 'Parse error - try again';
+      st.planError = 'Parse error: ' + (e.message||'').slice(0,80);
       st.planLoading = false;
       render();
       return;
