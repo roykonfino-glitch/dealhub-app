@@ -1658,9 +1658,54 @@ function handleApprovalFile(inp){
 function buildDocPage(html, autoPrint=false){
   const co=st.co||'Client',dt=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
   const mmSvg=buildTreeSVG();
-  
-
-function openDoc(html){
+  const printScript=autoPrint?'<script>window.addEventListener(\'load\',function(){setTimeout(function(){window.print();},800);});<\/script>':'';
+  return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>DealHub Design Document \u2014 '+co+'</title>'+printScript+'<style>'
+    +'@import url(\'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap\');'
+    +'*{box-sizing:border-box;margin:0;padding:0}'
+    +'body{font-family:\'Inter\',system-ui,sans-serif;background:#fff;color:#1a2332;font-size:13px;line-height:1.75}'
+    +'.cover{background:linear-gradient(160deg,#0a1628 0%,#0f2a1e 60%,#0a1628 100%);color:#fff;padding:72px;min-height:320px;display:flex;flex-direction:column;justify-content:space-between;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+    +'.cover-logo-mark{width:32px;height:32px;background:#00d4aa;border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;color:#0a1628}'
+    +'.cover-client{font-size:36px;font-weight:800;color:#fff;line-height:1.1;margin:32px 0 10px}'
+    +'.cover-sub{font-size:14px;color:rgba(255,255,255,.5)}'
+    +'.cover-meta{display:flex;margin-top:40px;border-top:1px solid rgba(255,255,255,.1);padding-top:24px;gap:40px}'
+    +'.meta-item .label{font-size:9px;font-weight:700;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}'
+    +'.meta-item .value{font-size:13px;font-weight:600;color:#fff}'
+    +'.body{padding:48px 72px;max-width:1000px;margin:0 auto}'
+    +'.section{padding-top:40px;border-top:2px solid #f3f4f6;margin-top:40px}'
+    +'.section:first-child{border-top:none;margin-top:0}'
+    +'.sec-num{display:inline-block;background:#0a1628;color:#00d4aa;border-radius:5px;padding:2px 8px;font-size:10px;font-weight:800;margin-bottom:8px;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+    +'h1{font-size:20px;font-weight:800;color:#0a1628;margin-bottom:5px}'
+    +'h2{font-size:14px;font-weight:700;color:#0a1628;margin:24px 0 8px;padding-left:10px;border-left:3px solid #00d4aa}'
+    +'p{margin-bottom:12px;color:#374151;line-height:1.75;font-size:13px}'
+    +'ul,ol{padding-left:20px;margin-bottom:14px}li{margin-bottom:5px;color:#374151;font-size:13px}'
+    +'table{width:100%;border-collapse:collapse;margin-bottom:20px;font-size:12px}'
+    +'thead tr{background:#0a1628;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+    +'th{padding:9px 12px;text-align:left;font-weight:700;font-size:10px;color:#00d4aa;text-transform:uppercase;letter-spacing:0.6px}'
+    +'td{padding:9px 12px;border-bottom:1px solid #f3f4f6;vertical-align:top;color:#374151}'
+    +'tbody tr:nth-child(even){background:#f9fafb}'
+    +'strong{color:#0a1628;font-weight:700}hr{border:none;border-top:1px solid #e5e7eb;margin:24px 0}'
+    +'.mm-wrap{border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;margin:16px 0}'
+    +'.footer-bar{background:#0a1628;color:rgba(255,255,255,.35);font-size:10px;padding:12px 72px;display:flex;align-items:center;justify-content:space-between;-webkit-print-color-adjust:exact;print-color-adjust:exact;margin-top:48px}'
+    +'@media print{@page{size:A4;margin:0}.cover{page-break-after:always;min-height:100vh}.section{page-break-inside:avoid}table{page-break-inside:avoid}}'
+    +'</style></head><body>'
+    +'<div class="cover">'
+    +'<div style="display:flex;align-items:center;gap:8px"><div class="cover-logo-mark">d</div><span style="font-size:14px;font-weight:700;color:rgba(255,255,255,.6)">dealhub ai</span></div>'
+    +'<div><div style="font-size:11px;font-weight:600;color:#00d4aa;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px">CPQ Configuration Design Document</div>'
+    +'<div class="cover-client">'+co+'</div>'
+    +'<div class="cover-sub">Prepared by '+(st.csm||'DealHub Professional Services')+' \u00b7 '+st.crm+'</div></div>'
+    +'<div class="cover-meta">'
+    +'<div class="meta-item"><div class="label">Date</div><div class="value">'+dt+'</div></div>'
+    +'<div class="meta-item"><div class="label">Industry</div><div class="value">'+(st.industry||'TBD')+'</div></div>'
+    +'<div class="meta-item"><div class="label">Go-Live</div><div class="value">'+(st.goLive||'TBD')+'</div></div>'
+    +'<div class="meta-item"><div class="label">Version</div><div class="value">1.0</div></div>'
+    +'</div></div>'
+    +'<div class="body">'
+    +(mmSvg?'<div class="section"><div class="sec-num">OVERVIEW</div><h1>Configuration Scope</h1><div class="mm-wrap">'+mmSvg+'</div></div>':'')
+    +html
+    +'</div>'
+    +'<div class="footer-bar"><span>DealHub CPQ \u00b7 Configuration Design Document</span><span>'+co+' \u00b7 '+dt+'</span><span>Confidential</span></div>'
+    +'</body></html>';
+}
   const pg=buildDocPage(html, false);
   const w=window.open('','_blank');
   if(w){w.document.write(pg);w.document.close();}
