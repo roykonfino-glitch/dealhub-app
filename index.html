@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DealHub CPQ — Discovery</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
@@ -1454,12 +1455,31 @@ function downloadDoc(){
   a.click();
 }
 
-function downloadDocPDF(){
+async function downloadDocPDF(){
   if(!st.lastDocHtml){alert('Generate the design document first.');return;}
-  const pg=buildDocPage(st.lastDocRaw||'',true);
-  const w=window.open('','_blank');
-  if(w){w.document.write(pg);w.document.close();}
-  else{downloadDoc();showToast('Popup blocked — downloaded HTML instead');}
+  const co=(st.co||'Client').replace(/\s+/g,'_');
+  const btn=document.getElementById('pdfBtn');
+  if(btn){btn.disabled=true;btn.textContent='⏳ Generating…';}
+  showToast('Building PDF — this takes a few seconds…');
+  try{
+    const pg=buildDocPage(st.lastDocRaw||'',false);
+    await html2pdf().set({
+      margin:0,
+      filename:`DealHub_Design_Doc_${co}_${new Date().toISOString().slice(0,10)}.pdf`,
+      image:{type:'jpeg',quality:0.92},
+      html2canvas:{scale:1.5,useCORS:true,logging:false,windowWidth:794},
+      jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},
+      pagebreak:{mode:'css'}
+    }).from(pg,'string').save();
+    showToast('✓ PDF downloaded');
+  }catch(e){
+    console.error('pdf error',e);
+    showToast('PDF failed — opening print dialog instead');
+    const w=window.open('','_blank');
+    if(w){w.document.write(buildDocPage(st.lastDocRaw||'',true));w.document.close();}
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='⬇️ Download PDF';}
+  }
 }
 
 
