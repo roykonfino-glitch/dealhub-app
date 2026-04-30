@@ -783,16 +783,16 @@ function render(){
   try{
     const fns=[S1,S2,S3,S4_Decisions,S5,S6,S7_Plan];
     const stepFn=fns[st.step]||S1;
-    const html=stepFn();
+    const stepHtml=stepFn();
     const el=document.getElementById('content');
-    if(el) el.innerHTML=`<div>${html}</div>`;
-    else console.error('content element not found');
+    if(el) el.innerHTML='<div>'+stepHtml+'</div>';
   }catch(e){
     console.error('Step render error:',e);
     const el=document.getElementById('content');
-    if(el){const msg=String(e.message||'Unknown error');el.innerHTML='<div style="padding:40px;color:#f87171;font-size:13px"><b>Error in step '+st.step+':</b><br>'+esc(msg)+'<br><br><button onclick="st.step=0;render()" style="background:#00d4aa;border:none;border-radius:7px;padding:8px 16px;color:#0a1525;font-weight:700;cursor:pointer;font-size:12px">Go to Step 1</button></div>';}
-  try{ drawFooter(); }catch(e){ console.error('drawFooter error:',e); }
-  try{ drawTips(); }catch(e){ console.error('drawTips error:',e); }
+    if(el){const msg=String(e.message||'Unknown error');el.innerHTML='<div style="padding:40px;color:#f87171"><b>Error:'+msg+'</b><br><button onclick="st.step=0;render()">Go to Step 1</button></div>';}
+  }
+  try{ drawFooter(); }catch(e){ console.error('footer:',e); }
+  try{ drawTips(); }catch(e){ console.error('tips:',e); }
   try{ save(); }catch(e){ console.error('save error:',e); }
 }
 
