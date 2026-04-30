@@ -303,6 +303,7 @@ let aiOpen=false;
 let aiLoading=false;
 let aiMessages=[{role:'ai',html:'👋 Hi! I\'m your <strong>CPQ Configuration Advisor</strong>. I\'ll guide you through each step of this discovery. Click any step to get started, and I\'ll automatically offer advice as you go.'}];
 let aiStepSeen=new Set();
+let introTimer=null;
 
 function toggleAI(){
   aiOpen=!aiOpen;
@@ -388,6 +389,12 @@ async function sendAI(){
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:200,system:buildSysPrompt(),messages:msgs})
     });
+    if(!r.ok){
+      aiMessages.push({role:'ai',html:`⚠️ Advisor request failed (${r.status}). Please try again.`});
+      aiLoading=false;
+      renderAIMessages();
+      return;
+    }
     const d=await r.json();
     if(d.error){aiMessages.push({role:'ai',html:`⚠️ ${d.error.message}`});}
     else{
@@ -409,7 +416,8 @@ function render(){
   renderFooter();
   renderHeaderMeta();
   // Auto-trigger step intro
-  setTimeout(()=>triggerStepIntro(state.step),400);
+  if(introTimer) clearTimeout(introTimer);
+  introTimer=setTimeout(()=>triggerStepIntro(state.step),400);
 }
 
 function renderHeaderMeta(){
@@ -429,7 +437,7 @@ function renderSteps(){
     return `<div class="step-item"><button class="step-btn ${cls}" onclick="goStep(${i})" title="${s.label}">${i<state.step?'✓':i+1}</button><span class="step-label${i===state.step?' active':''}">${s.label}</span>${conn}</div>`;
   }).join('');
 }
-function goStep(i){state.step=i;render();}
+function goStep(i){state.step=i;render();window.scrollTo(0,0);}
 
 function renderStep(){
   const fns=[S0,S1,S2,S3,S4,S5,S6,S7,S8,S9];
@@ -1038,6 +1046,12 @@ The document will be injected into a pre-styled page.`;
         messages:[{role:'user',content:`Please write a full Configuration Design Document for the following discovery data:\n\n${context}`}]
       })
     });
+    if(!r.ok){
+      state.docError=`Design document request failed (${r.status}).`;
+      state.docGenerating=false;
+      render();
+      return;
+    }
     const d=await r.json();
     if(d.error){state.docError=d.error.message;state.docGenerating=false;render();return;}
     const docHtml=d.content?.[0]?.text||'';
@@ -1158,7 +1172,11 @@ function submitForm(){
     const proceed=confirm('Client name or use cases seem incomplete. Submit anyway?');
     if(!proceed) return;
   }
-  exportData();
+  const exported=exportData();
+  if(!exported){
+    const proceed=confirm('Export failed. Submit discovery anyway?');
+    if(!proceed) return;
+  }
   clearSavedDraft();
   state.submitted=true;
   render();
@@ -1206,12 +1224,18 @@ Extract every distinct rule mentioned. If a rule is implied (e.g. "manager appro
         messages:[{role:'user',content:text}]
       })
     });
+    if(!r.ok){
+      state.approvalsExtractError=`Extraction request failed (${r.status}).`;
+      state.approvalsExtracting=false;
+      render();
+      return;
+    }
     const d=await r.json();
     if(d.error){state.approvalsExtractError=d.error.message;state.approvalsExtracting=false;render();return;}
     const raw=d.content?.[0]?.text||'[]';
     let parsed;
     try{
-      parsed=JSON.parse(raw.replace(/```json|```/g,'').trim());
+      parsed=JSON.parse(raw.replace(/```[a-zA-Z]*|```/g,'').trim());
     }catch(e){
       state.approvalsExtractError='Could not parse AI response. Try rephrasing your description.';
       state.approvalsExtracting=false;render();return;
@@ -1255,7 +1279,7 @@ function updAsset(id,f,v){state.dealRoomAssets=state.dealRoomAssets.map(a=>a.id=
 
 // ── Export ─────────────────────────────────────────────────────────────────
 function exportData(){
-  if(typeof XLSX==='undefined'){alert('XLSX library not loaded.');return;}
+  if(typeof XLSX==='undefined'){alert('XLSX library not loaded.');return false;}
   const wb=XLSX.utils.book_new();
   const add=(name,data)=>{if(data&&data.length){XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(data),name);}};
   if(state.skus.length) add('Products',state.skus.map(({id,...r})=>r));
@@ -1272,7 +1296,14 @@ function exportData(){
   // Export AI conversation as notes
   if(aiMessages.length>1) add('AI Advisor Notes',aiMessages.map((m,i)=>({turn:i+1,role:m.role==='ai'?'Advisor':'Client',message:(m.html||m.text||'').replace(/<[^>]+>/g,'')})));
   if(!wb.SheetNames.length) add('Summary',[{note:'No data entered yet'}]);
-  XLSX.writeFile(wb,`Discovery_${state.clientName||'Unnamed'}_${new Date().toISOString().slice(0,10)}.xlsx`);
+  const safeClient=(state.clientName||'Unnamed').replace(/[\\/:*?"<>|]/g,'_').trim()||'Unnamed';
+  try{
+    XLSX.writeFile(wb,`Discovery_${safeClient}_${new Date().toISOString().slice(0,10)}.xlsx`);
+    return true;
+  }catch(e){
+    alert('Could not export Excel file. Please try again.');
+    return false;
+  }
 }
 
 function resetApp(){
@@ -1349,13 +1380,33 @@ function clearSavedDraft(){
   try{localStorage.removeItem(STORAGE_KEY);}catch(e){}
 }
 
+function normalizeLoadedState(raw){
+  const base=freshState();
+  if(!raw||typeof raw!=='object') return base;
+  const merged={...base,...raw};
+  const arrKeys=[
+    'useCases','approvalRules','approvers','decisionTree','calculations',
+    'commercialTerms','sellerBillingFields','buyerBillingFields','dealRoomAssets','currencies','skus'
+  ];
+  arrKeys.forEach(k=>{
+    if(!Array.isArray(merged[k])) merged[k]=base[k];
+  });
+  if(typeof merged.followUpAnswers!=='object' || merged.followUpAnswers===null){
+    merged.followUpAnswers={};
+  }
+  if(typeof merged.clientName!=='string') merged.clientName='';
+  if(typeof merged.step!=='number' || !Number.isFinite(merged.step)) merged.step=0;
+  merged.step=Math.max(0,Math.min(STEPS.length-1,Math.floor(merged.step)));
+  return merged;
+}
+
 function hydrateDraft(){
   try{
     const raw=localStorage.getItem(STORAGE_KEY);
     if(!raw) return;
     const parsed=JSON.parse(raw);
     if(parsed&&parsed.state&&typeof parsed.state==='object'){
-      state={...freshState(),...parsed.state};
+      state=normalizeLoadedState(parsed.state);
     }
     if(Array.isArray(parsed?.aiMessages)&&parsed.aiMessages.length){
       aiMessages=parsed.aiMessages;
@@ -1371,6 +1422,7 @@ function hydrateDraft(){
 
 window.addEventListener('input',scheduleSave);
 window.addEventListener('change',scheduleSave);
+window.addEventListener('click',scheduleSave);
 window.addEventListener('beforeunload',saveDraftNow);
 
 function init(){
