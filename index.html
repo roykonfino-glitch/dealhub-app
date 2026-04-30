@@ -1405,7 +1405,7 @@ BADGES: <span class="badge-yes">Yes</span> <span class="badge-no">No</span> <spa
 TAGS: <span class="tag-type">Text - List</span> <span class="tag-owner">DH</span> <span class="tag-owner">Client</span> <span class="tag-p-high">High</span> <span class="tag-p-med">Medium</span> <span class="tag-p-low">Low</span>
 CALLOUTS: <div class="callout callout-info"><div class="callout-icon">ℹ️</div><p><strong>Note:</strong> text</p></div>
 
-WRITE ALL 8 SECTIONS — be specific, use real names/values from the data, reference actual SKU names and product families:
+RULES: Be specific, use real names/values, reference actual SKU names and product families. Write ONLY the sections listed in the user message. No preamble, no conclusion text after the last section.
 1. Executive Summary: meta table (Client Name, Prepared By [use CSM name if given], Version 1.0, Date, Notes), Objectives bullets (standard), Scope bullets (standard + client-specific items based on use cases), Decision Makers table (use admin name from data if provided, mark ACTION REQUIRED for unknowns), Timeline
 2. DealHub Pillars of Design: verbatim boilerplate + client-specific strategy paragraph referencing their industry, pricing model, and use cases
 3. Integrations & Features: CRM connection table with actual CRM/edition/direction/object, Environments (Sandbox/Prod names TBD), Packages (DealHub Integration confirmed, Subscriptions if renewals mentioned), Optional Integrations if DocuSign/Slack/SSO enabled
@@ -1417,22 +1417,31 @@ WRITE ALL 8 SECTIONS — be specific, use real names/values from the data, refer
 8. UAT Checklist: 10 rows with SPECIFIC scenarios referencing actual values — e.g. "Test [AE role] discounting at [threshold]% routes to [approver name]", "Test [product family name] products appear with [pricing model] on quote" (Test Scenario | Steps | Expected Outcome | Priority)`;
 
   try{
-    const res=await fetch(PX,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:8000,system:sys,messages:[{role:'user',content:`Generate the full Configuration Design Document:\n\n${ctx}`}]})});
-    const text=await res.text();
-    if(!res.ok){st.docError=`HTTP ${res.status}: ${text.slice(0,200)}`;st.docGenerating=false;render();return;}
-    let d;
-    try{d=JSON.parse(text);}catch(pe){st.docError=`Bad JSON from server: ${text.slice(0,150)}`;st.docGenerating=false;render();return;}
-    if(d.error){st.docError=typeof d.error==='string'?d.error:(d.error.message||JSON.stringify(d.error));st.docGenerating=false;render();return;}
-    const docContent=(d.content&&d.content[0]?d.content[0].text:'')||'';
+    const call=b=>fetch(PX,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});
+    const [res1,res2]=await Promise.all([
+      call({model:'claude-haiku-4-5-20251001',max_tokens:4000,system:sys,messages:[{role:'user',content:`Generate sections 1, 2, 3, 4, 4b of the Configuration Design Document:\n\n${ctx}`}]}),
+      call({model:'claude-haiku-4-5-20251001',max_tokens:4000,system:sys,messages:[{role:'user',content:`Generate sections 5, 6, 7, 8 of the Configuration Design Document:\n\n${ctx}`}]})
+    ]);
+    const [text1,text2]=await Promise.all([res1.text(),res2.text()]);
+    if(!res1.ok){st.docError=`HTTP ${res1.status}: ${text1.slice(0,200)}`;st.docGenerating=false;render();return;}
+    if(!res2.ok){st.docError=`HTTP ${res2.status}: ${text2.slice(0,200)}`;st.docGenerating=false;render();return;}
+    let d1,d2;
+    try{d1=JSON.parse(text1);}catch(pe){st.docError=`Bad JSON: ${text1.slice(0,150)}`;st.docGenerating=false;render();return;}
+    try{d2=JSON.parse(text2);}catch(pe){st.docError=`Bad JSON: ${text2.slice(0,150)}`;st.docGenerating=false;render();return;}
+    if(d1.error){st.docError=typeof d1.error==='string'?d1.error:(d1.error.message||JSON.stringify(d1.error));st.docGenerating=false;render();return;}
+    if(d2.error){st.docError=typeof d2.error==='string'?d2.error:(d2.error.message||JSON.stringify(d2.error));st.docGenerating=false;render();return;}
+    const c1=(d1.content&&d1.content[0]?d1.content[0].text:'')||'';
+    const c2=(d2.content&&d2.content[0]?d2.content[0].text:'')||'';
+    console.log('genDoc s1:',d1.stop_reason,c1.length,'chars  s2:',d2.stop_reason,c2.length,'chars');
+    const docContent=c1+'\n'+c2;
     st.docGenerating=false;
     st.lastDocRaw=docContent;
     st.lastDocHtml=buildDocPage(docContent, false);
     save();render();
-    // Open in new tab
     const w=window.open('','_blank');
     if(w){w.document.write(st.lastDocHtml);w.document.close();}
-    else downloadDoc(); // fallback if popup blocked
-  }catch(e){st.docError='Could not reach AI.';st.docGenerating=false;render();}
+    else downloadDoc();
+  }catch(e){st.docError='Could not reach AI: '+e.message;st.docGenerating=false;render();}
 }
 
 function downloadDoc(){
