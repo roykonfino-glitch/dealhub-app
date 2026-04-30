@@ -1445,47 +1445,10 @@ function downloadDoc(){
   a.click();
 }
 
-async function downloadDocPDF(){
+function downloadDocPDF(){
   if(!st.lastDocHtml){alert('Generate the design document first.');return;}
-
-  // Show loading state
-  const btn=document.getElementById('pdfBtn');
-  if(btn){btn.disabled=true;btn.textContent='⏳ Generating PDF…';}
-  showToast('Generating PDF — this takes a few seconds…');
-
-  try{
-    // Create a hidden iframe, load the doc HTML, then run html2pdf on its body
-    const iframe=document.createElement('iframe');
-    iframe.style.cssText='position:fixed;top:-9999px;left:-9999px;width:794px;height:1123px;border:none;';
-    document.body.appendChild(iframe);
-
-    await new Promise(resolve=>{
-      iframe.onload=resolve;
-      iframe.srcdoc=st.lastDocHtml;
-    });
-    // Give fonts/images a moment to render
-    await new Promise(r=>setTimeout(r,1200));
-
-    const el=iframe.contentDocument.body;
-    const co=(st.co||'Client').replace(/\s+/g,'_');
-
-    await html2pdf().set({
-      margin:[0,0,0,0],
-      filename:`DealHub_Design_Doc_${co}_${new Date().toISOString().slice(0,10)}.pdf`,
-      image:{type:'jpeg',quality:0.95},
-      html2canvas:{scale:1.5,useCORS:true,logging:false,windowWidth:794},
-      jsPDF:{unit:'px',format:'a4',orientation:'portrait',hotfixes:['px_scaling']},
-      pagebreak:{mode:['avoid-all','css','legacy']},
-    }).from(el).save();
-
-    document.body.removeChild(iframe);
-    showToast('✓ PDF downloaded');
-  }catch(e){
-    showToast('PDF failed — downloading HTML instead');
-    downloadDoc();
-  }finally{
-    if(btn){btn.disabled=false;btn.textContent='⬇️ Download PDF';}
-  }
+  const w=window.open('','_blank');
+  if(w){w.document.write(st.lastDocHtml);w.document.close();}
 }
 
 
@@ -1715,19 +1678,7 @@ function openDoc(html){
   else downloadDoc();
 }
 
-function downloadDocPDF(){
-  if(!st.lastDocHtml){alert('Generate the design document first.');return;}
-  // Rebuild using stored raw AI content with autoPrint=true
-  const pg=buildDocPage(st.lastDocRaw||'', true);
-  const w=window.open('','_blank');
-  if(w){
-    w.document.write(pg);
-    w.document.close();
-  } else {
-    downloadDoc();
-    showToast('Popup blocked — downloaded HTML instead');
-  }
-}
+
 
 async function genMM(){
   st.mmGenerating=true;st.mmError='';render();
@@ -1900,6 +1851,7 @@ Return exactly 14 items. DH owns build tasks. Client owns sign-offs and UAT.`;
     if(d.error){st.planError=typeof d.error==='string'?d.error:(d.error.message||JSON.stringify(d.error));st.planLoading=false;render();return;}
     const raw=((d.content&&d.content[0]?d.content[0].text:'')||'').replace(/```json|```/g,'').trim();
     if(!raw){st.planError='Empty response — try again';st.planLoading=false;render();return;}
+    console.log('genProjectPlan raw response:', raw);
     try {
       let jsonStr = raw.match(/\[[\s\S]*\]/)?.[0] || raw;
       jsonStr = jsonStr.replace(/'/g, '"').replace(/,(\s*[}\]])/g, '$1');
