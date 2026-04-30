@@ -1456,8 +1456,10 @@ function downloadDoc(){
 
 function downloadDocPDF(){
   if(!st.lastDocHtml){alert('Generate the design document first.');return;}
+  const pg=buildDocPage(st.lastDocRaw||'',true);
   const w=window.open('','_blank');
-  if(w){w.document.write(st.lastDocHtml);w.document.close();}
+  if(w){w.document.write(pg);w.document.close();}
+  else{downloadDoc();showToast('Popup blocked — downloaded HTML instead');}
 }
 
 
