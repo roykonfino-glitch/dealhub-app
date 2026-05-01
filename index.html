@@ -1455,31 +1455,10 @@ function downloadDoc(){
   a.click();
 }
 
-async function downloadDocPDF(){
+function downloadDocPDF(){
   if(!st.lastDocHtml){alert('Generate the design document first.');return;}
-  const co=(st.co||'Client').replace(/\s+/g,'_');
-  const btn=document.getElementById('pdfBtn');
-  if(btn){btn.disabled=true;btn.textContent='⏳ Generating…';}
-  showToast('Building PDF — this takes a few seconds…');
-  try{
-    const pg=buildDocPage(st.lastDocRaw||'',false);
-    await html2pdf().set({
-      margin:0,
-      filename:`DealHub_Design_Doc_${co}_${new Date().toISOString().slice(0,10)}.pdf`,
-      image:{type:'jpeg',quality:0.92},
-      html2canvas:{scale:1.5,useCORS:true,logging:false,windowWidth:794},
-      jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},
-      pagebreak:{mode:'css'}
-    }).from(pg,'string').save();
-    showToast('✓ PDF downloaded');
-  }catch(e){
-    console.error('pdf error',e);
-    showToast('PDF failed — opening print dialog instead');
-    const w=window.open('','_blank');
-    if(w){w.document.write(buildDocPage(st.lastDocRaw||'',true));w.document.close();}
-  }finally{
-    if(btn){btn.disabled=false;btn.textContent='⬇️ Download PDF';}
-  }
+  const w=window.open('','_blank');
+  if(w){w.document.write(st.lastDocHtml);w.document.close();}
 }
 
 
@@ -1884,17 +1863,11 @@ Return exactly 14 items. DH owns build tasks. Client owns sign-offs and UAT.`;
     if(!raw){st.planError='Empty response — try again';st.planLoading=false;render();return;}
     console.log('genProjectPlan raw response:', raw);
     try {
-      const jsonStr = raw.match(/\[[\s\S]*\]/)?.[0] || raw;
-      try {
-        st.projectPlan = JSON.parse(jsonStr);
-      } catch(e1) {
-        const cleaned = jsonStr
-          .replace(/,(\s*[}\]])/g, '$1')
-          .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)(\s*):/g, '$1"$2"$3:');
-        st.projectPlan = JSON.parse(cleaned);
-      }
+      let jsonStr = raw.match(/\[[\s\S]*\]/)?.[0] || raw;
+      jsonStr = jsonStr.replace(/'/g, '"').replace(/,(\s*[}\]])/g, '$1');
+      st.projectPlan = JSON.parse(jsonStr);
     } catch(e) {
-      st.planError = 'Parse error: ' + (e.message||'').slice(0,80);
+      st.planError = 'Parse error - try again';
       st.planLoading = false;
       render();
       return;
