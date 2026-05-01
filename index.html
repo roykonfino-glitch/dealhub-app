@@ -1790,10 +1790,24 @@ function renderTreeSVG(tree){
 // ── S7 — PROJECT PLAN ═══════════════════════════════════════════════════════
 function S7_Plan(){
   const hasPlan=st.projectPlan&&st.projectPlan.length>0;
+  const milestones=hasPlan?st.projectPlan.filter(r=>r.milestone):[];
+  const timeline=milestones.length?'<div style="display:flex;gap:0;overflow-x:auto;margin-bottom:14px;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;align-items:center">'
+    +milestones.map((m,i)=>'<div style="display:flex;align-items:center;flex-shrink:0">'
+      +'<div style="text-align:center;padding:0 6px">'
+      +'<div style="font-size:9px;font-weight:700;color:var(--primary);white-space:nowrap">'+esc(m.start)+'</div>'
+      +'<div style="font-size:10px;font-weight:600;color:var(--text);white-space:nowrap;max-width:90px;overflow:hidden;text-overflow:ellipsis" title="'+esc(m.task)+'">'+esc(m.task)+'</div>'
+      +'</div>'+(i<milestones.length-1?'<span style="color:var(--muted);font-size:11px;margin:0 1px">›</span>':'')+'</div>').join('')
+    +'</div>':'';
   const rows=hasPlan?st.projectPlan.map((r,i)=>`
-<tr style="${r.milestone?'background:rgba(0,212,170,.08);':i%2===0?'':'background:var(--bg)'}">
+<tr style="${r.milestone?'background:rgba(0,212,170,.08);border-left:3px solid var(--primary);':i%2===0?'':'background:rgba(255,255,255,.02);'}">
   <td style="font-size:11px;color:var(--muted);white-space:nowrap;padding:8px 12px">${esc(r.phase||'')}</td>
-  <td style="padding:8px 12px;${r.milestone?'font-weight:700':''}"><input style="background:transparent;border:none;color:var(--text);font-size:12px;width:100%;outline:none;${r.milestone?'font-weight:700':''}" value="${esc(r.task||'')}" oninput="st.projectPlan[${i}].task=this.value;save()"></td>
+  <td style="padding:8px 12px;${r.milestone?'font-weight:700':''}">
+    <div style="display:flex;align-items:center;gap:4px">
+      ${r.milestone?'<span style="color:var(--primary);font-size:12px;flex-shrink:0">🏁</span>':''}
+      <input style="background:transparent;border:none;color:var(--text);font-size:12px;width:100%;outline:none;${r.milestone?'font-weight:700':''}" value="${esc(r.task||'')}" oninput="st.projectPlan[${i}].task=this.value;save()">
+    </div>
+    ${r.notes?`<div style="font-size:10px;color:var(--muted);margin-top:2px;padding-left:${r.milestone?'18':'0'}px">${esc(r.notes)}</div>`:''}
+  </td>
   <td style="text-align:center;padding:8px 12px"><span style="background:${r.owner==='DH'?'#e6f9f5':r.owner==='Client'?'#eff6ff':'#fff7ed'};color:${r.owner==='DH'?'#007a65':r.owner==='Client'?'#1d4ed8':'#c2410c'};border-radius:12px;padding:2px 8px;font-size:10px;font-weight:700">${esc(r.owner||'')}</span></td>
   <td style="font-size:11px;color:var(--muted);white-space:nowrap;padding:8px 12px">${esc(r.start||'')}</td>
   <td style="font-size:11px;color:var(--muted);white-space:nowrap;padding:8px 12px">${esc(r.end||'')}</td>
@@ -1821,6 +1835,7 @@ ${!hasPlan?`<div style="background:linear-gradient(135deg,rgba(0,212,170,.1),rgb
   <button class="btn btn-sm" onclick="printPlan()">🖨️ Print / PDF</button>
   ${st.planError?`<span style="font-size:11px;color:#e53e3e">⚠️ ${esc(st.planError)}</span>`:''}
 </div>
+${timeline}
 <div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.04)">
 <table style="width:100%;border-collapse:collapse;font-size:12px">
   <thead><tr style="background:#0d1b2e">
@@ -1841,11 +1856,13 @@ async function genProjectPlan(){
   const en=st.useCases.filter(u=>u.on);
   const ctx=`Client: ${st.co||'unknown'} | Go-live: ${st.goLive||'TBD'} | CRM: ${st.crm} | Industry: ${st.industry||'unknown'} | Contract: ${st.contractLength||'12'}mo | Products: ${st.productFamilies||'unknown'} | Pricing: ${st.pricingModel||'unknown'} | Use cases: ${en.map(u=>u.n).join(', ')||'none'} | DocuSign: ${en.some(u=>u.k==='docusign')?'Yes':'No'}`;
 
-  const sys=`You are a DealHub implementation manager. Return ONLY a valid JSON array. No markdown, no explanation, no text before or after the array.
-Each item: {"phase":"string","task":"string","owner":"DH or Client or Both","start":"Week 1","end":"Week 2","priority":"High or Medium or Low","milestone":false}
-Set milestone:true for: Kickoff, Design Sign-off, Config Complete, UAT Start, Go-Live.
-Use these phases in order: Discovery & Design, Integration Setup, Product Config, Approval Workflows, DealRoom & Docs, UAT, Training, Go-Live.
-Return exactly 14 items. DH owns build tasks. Client owns sign-offs and UAT.`;
+  const sys=`You are a DealHub CPQ implementation manager. Return ONLY a valid JSON array — no markdown, no text before or after.
+Schema: {"phase":"string","task":"string","owner":"DH or Client or Both","start":"Week N","end":"Week N","priority":"High or Medium or Low","milestone":false,"notes":"string"}
+notes: key dependency or action required, max 12 words. Empty string if none.
+Generate exactly 22 tasks across these phases (task count per phase): Discovery & Design (4), Integration Setup (3), Product Catalog (3), Approval Workflows (2), DealRoom & Docs (2), UAT (4), Training (2), Go-Live (2).
+Set milestone:true for exactly these 9 tasks: Kickoff Meeting, Discovery Complete, Integration Complete, Catalog Config Complete, Approval Workflows Complete, DealRoom & Docs Complete, UAT Start, Training Complete, Go-Live.
+DH owns build/config. Client owns sign-offs, data provision, UAT execution. Both for workshops and kickoff.
+Tailor task names and notes to the client: their CRM, enabled use cases, pricing model, and go-live target.`;
 
   try{
     const res=await fetch(PX,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
@@ -1882,15 +1899,15 @@ Return exactly 14 items. DH owns build tasks. Client owns sign-offs and UAT.`;
 function exportPlanXlsx(){
   if(!st.projectPlan?.length){alert('Generate a plan first.');return;}
   const wb=XLSX.utils.book_new();
-  const ws=XLSX.utils.json_to_sheet(st.projectPlan.map(r=>({Phase:r.phase,Task:r.task,Owner:r.owner,Start:r.start,End:r.end,Priority:r.priority,Milestone:r.milestone?'Yes':''})));
+  const ws=XLSX.utils.json_to_sheet(st.projectPlan.map(r=>({Phase:r.phase,Task:r.task,Notes:r.notes||'',Owner:r.owner,Start:r.start,End:r.end,Priority:r.priority,Milestone:r.milestone?'Yes':''})));
   XLSX.utils.book_append_sheet(wb,ws,'Project Plan');
   XLSX.writeFile(wb,`DealHub_Plan_${(st.co||'Client').replace(/\s+/g,'_')}.xlsx`);
 }
 
 function printPlan(){
   const co=st.co||'Client',dt=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
-  const rows=(st.projectPlan||[]).map((r,i)=>`<tr style="${r.milestone?'background:rgba(0,212,170,.08);font-weight:700':i%2===0?'':'background:var(--bg)'}">
-    <td>${esc(r.phase)}</td><td>${esc(r.task)}</td><td style="text-align:center">${esc(r.owner)}</td><td>${esc(r.start)}</td><td>${esc(r.end)}</td><td>${esc(r.priority)}</td></tr>`).join('');
+  const rows=(st.projectPlan||[]).map((r,i)=>`<tr style="${r.milestone?'background:rgba(0,212,170,.08);font-weight:700':i%2===0?'':'background:#f9fafb'}">
+    <td>${r.milestone?'🏁 ':''}${esc(r.phase)}</td><td><strong>${esc(r.task)}</strong></td><td style="color:#6b7280;font-size:11px">${esc(r.notes||'')}</td><td style="text-align:center">${esc(r.owner)}</td><td>${esc(r.start)}</td><td>${esc(r.end)}</td><td>${esc(r.priority)}</td></tr>`).join('');
   const pg=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Project Plan — ${co}</title>
 <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:system-ui,sans-serif;font-size:12px;color:var(--text);padding:40px}
 h1{font-size:22px;font-weight:800;margin-bottom:4px}.sub{font-size:12px;color:var(--muted);margin-bottom:24px}
@@ -1899,7 +1916,7 @@ td{padding:8px 12px;border-bottom:1px solid #e5e7eb}@media print{body{padding:20
 </head><body>
 <h1>DealHub CPQ — Implementation Project Plan</h1>
 <div class="sub">${esc(co)} · ${dt} · Go-live target: ${esc(st.goLive||'TBD')}</div>
-<table><thead><tr><th>Phase</th><th>Task</th><th>Owner</th><th>Start</th><th>End</th><th>Priority</th></tr></thead><tbody>${rows}</tbody></table>
+<table><thead><tr><th>Phase</th><th>Task</th><th>Notes</th><th>Owner</th><th>Start</th><th>End</th><th>Priority</th></tr></thead><tbody>${rows}</tbody></table>
 </body></html>`;
   const w=window.open('','_blank');if(w){w.document.write(pg);w.document.close();setTimeout(()=>w.print(),400);}
 }
