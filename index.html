@@ -1856,13 +1856,14 @@ async function genProjectPlan(){
   const en=st.useCases.filter(u=>u.on);
   const ctx=`Client: ${st.co||'unknown'} | Go-live: ${st.goLive||'TBD'} | CRM: ${st.crm} | Industry: ${st.industry||'unknown'} | Contract: ${st.contractLength||'12'}mo | Products: ${st.productFamilies||'unknown'} | Pricing: ${st.pricingModel||'unknown'} | Use cases: ${en.map(u=>u.n).join(', ')||'none'} | DocuSign: ${en.some(u=>u.k==='docusign')?'Yes':'No'}`;
 
-  const sys=`You are a DealHub CPQ implementation manager. Return ONLY a valid JSON array — no markdown, no text before or after.
+  const sys=`You are a DealHub CPQ implementation manager. Output a JSON array only — no markdown, no explanation, no text before or after the array.
+STRICT JSON RULES: use double quotes for ALL keys and string values. Never use single quotes. Never leave keys unquoted. Valid booleans: true/false (no quotes).
 Schema: {"phase":"string","task":"string","owner":"DH or Client or Both","start":"Week N","end":"Week N","priority":"High or Medium or Low","milestone":false,"notes":"string"}
-notes: key dependency or action required, max 12 words. Empty string if none.
-Generate exactly 22 tasks across these phases (task count per phase): Discovery & Design (4), Integration Setup (3), Product Catalog (3), Approval Workflows (2), DealRoom & Docs (2), UAT (4), Training (2), Go-Live (2).
+notes: key dependency or action required, max 10 words, no apostrophes. Empty string if none.
+Generate exactly 22 tasks across these phases (task count): Discovery & Design (4), Integration Setup (3), Product Catalog (3), Approval Workflows (2), DealRoom & Docs (2), UAT (4), Training (2), Go-Live (2).
 Set milestone:true for exactly these 9 tasks: Kickoff Meeting, Discovery Complete, Integration Complete, Catalog Config Complete, Approval Workflows Complete, DealRoom & Docs Complete, UAT Start, Training Complete, Go-Live.
 DH owns build/config. Client owns sign-offs, data provision, UAT execution. Both for workshops and kickoff.
-Tailor task names and notes to the client: their CRM, enabled use cases, pricing model, and go-live target.`;
+Tailor task names and notes to the client context provided.`;
 
   try{
     const res=await fetch(PX,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
@@ -1881,21 +1882,27 @@ Tailor task names and notes to the client: their CRM, enabled use cases, pricing
     console.log('genProjectPlan raw response:', raw);
     try {
       const jsonStr = raw.match(/\[[\s\S]*\]/)?.[0] || raw;
-      // Try 1: plain parse (model usually returns valid JSON)
+      // Try 1: plain parse
       try { st.projectPlan = JSON.parse(jsonStr); }
       catch(e1) {
-        // Try 2: fix trailing commas + unquoted keys only (no apostrophe swap — breaks notes)
-        const c2 = jsonStr.replace(/,(\s*[}\]])/g,'$1')
-          .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)(\s*):/g,'$1"$2"$3:');
+        // Try 2: fix trailing commas + unquoted keys
+        const c2 = jsonStr
+          .replace(/,(\s*[}\]])/g,’$1’)
+          .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)(\s*):/g,’$1”$2”$3:’);
         try { st.projectPlan = JSON.parse(c2); }
         catch(e2) {
-          // Try 3: last resort — also normalise curly quotes
-          const c3 = c2.replace(/[“”]/g,'"').replace(/[‘’]/g,"'");
-          st.projectPlan = JSON.parse(c3);
+          // Try 3: normalise curly quotes
+          const c3 = c2.replace(/[“”]/g,’”’).replace(/[‘’]/g,”’”);
+          try { st.projectPlan = JSON.parse(c3); }
+          catch(e3) {
+            // Try 4: swap remaining single-quote string delimiters
+            const c4 = c3.replace(/([:,\[{]\s*)’([^’]*)’/g,’$1”$2”’);
+            st.projectPlan = JSON.parse(c4);
+          }
         }
       }
     } catch(e) {
-      st.planError = 'Parse error: ' + String(e.message).slice(0,60) + ' — try again';
+      st.planError = ‘Parse error: ‘ + String(e.message).slice(0,80) + ‘ — raw: ‘ + raw.slice(0,120);
       st.planLoading = false;
       render();
       return;
