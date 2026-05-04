@@ -1885,10 +1885,10 @@ async function genProjectPlan(){
   const en=st.useCases.filter(u=>u.on);
   const ctx=`Client: ${st.co||'unknown'} | Go-live: ${st.goLive||'TBD'} | CRM: ${st.crm} | Industry: ${st.industry||'unknown'} | Contract: ${st.contractLength||'12'}mo | Products: ${st.productFamilies||'unknown'} | Pricing: ${st.pricingModel||'unknown'} | Use cases: ${en.map(u=>u.n).join(', ')||'none'} | DocuSign: ${en.some(u=>u.k==='docusign')?'Yes':'No'}`;
 
-  const sys=`You are a DealHub CPQ implementation manager. Output a JSON array only — no markdown, no explanation, no text before or after the array.
+  const sys=`You are a DealHub CPQ implementation manager. Output a JSON array only — no markdown, no explanation, no text before or after the array. Output compact JSON with NO line breaks or indentation inside the array.
 STRICT JSON RULES: use double quotes for ALL keys and string values. Never use single quotes. Never leave keys unquoted. Valid booleans: true/false (no quotes).
 Schema: {"phase":"string","task":"string","owner":"DH or Client or Both","start":"Week N","end":"Week N","priority":"High or Medium or Low","milestone":false,"notes":"string"}
-notes: key dependency or action required, max 10 words, no apostrophes. Empty string if none.
+notes: key dependency or action required, max 8 words, no apostrophes. Empty string if none.
 Generate exactly 22 tasks across these phases (task count): Discovery & Design (4), Integration Setup (3), Product Catalog (3), Approval Workflows (2), DealRoom & Docs (2), UAT (4), Training (2), Go-Live (2).
 Set milestone:true for exactly these 9 tasks: Kickoff Meeting, Discovery Complete, Integration Complete, Catalog Config Complete, Approval Workflows Complete, DealRoom & Docs Complete, UAT Start, Training Complete, Go-Live.
 DH owns build/config. Client owns sign-offs, data provision, UAT execution. Both for workshops and kickoff.
@@ -1897,7 +1897,7 @@ Tailor task names and notes to the client context provided.`;
   try{
     const res=await fetch(PX,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
       model:'claude-haiku-4-5-20251001',
-      max_tokens:2000,
+      max_tokens:3000,
       system:sys,
       messages:[{role:'user',content:ctx}]
     })});
