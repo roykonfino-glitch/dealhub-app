@@ -408,35 +408,45 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
 .logout-btn:hover{border-color:var(--danger);color:var(--danger)}
 
 /* ── Stats bar ── */
-.stats-bar{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;padding:20px 28px;border-bottom:1px solid var(--border)}
-.stat{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
-.stat-n{font-size:26px;font-weight:800;color:var(--primary);line-height:1}
-.stat-l{font-size:11px;color:var(--muted);margin-top:4px}
-.stat.highlight{background:var(--primary-dim);border-color:rgba(0,212,170,.25)}
+.stats-bar{display:grid;grid-template-columns:repeat(5,1fr);gap:0;border-bottom:2px solid var(--border);background:var(--bg2)}
+.stat{padding:18px 24px;border-right:1px solid var(--border);position:relative;overflow:hidden}
+.stat:last-child{border-right:none}
+.stat-icon{font-size:14px;margin-bottom:8px;opacity:.6;display:block}
+.stat-n{font-size:28px;font-weight:800;color:var(--text);line-height:1;letter-spacing:-1px}
+.stat-l{font-size:10px;color:var(--muted);margin-top:6px;font-weight:600;text-transform:uppercase;letter-spacing:.6px}
+.stat.highlight{background:rgba(0,212,170,.04)}
+.stat.highlight::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--primary)}
 .stat.highlight .stat-n{color:var(--primary)}
 
 /* ── Filters ── */
-.filters{display:flex;align-items:center;gap:10px;padding:14px 28px;border-bottom:1px solid var(--border);flex-wrap:wrap}
-.search-inp{background:var(--card);border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:7px 12px;font-size:12px;outline:none;width:220px;font-family:inherit}
-.search-inp:focus{border-color:var(--primary)}
+.filters{display:flex;align-items:center;gap:8px;padding:12px 28px;border-bottom:1px solid var(--border);background:var(--bg2);flex-wrap:wrap}
+.search-wrap{position:relative;flex-shrink:0}
+.search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:11px;pointer-events:none;line-height:1}
+.search-inp{background:var(--card);border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:7px 12px 7px 30px;font-size:12px;outline:none;width:240px;font-family:inherit;transition:border .15s}
+.search-inp:focus{border-color:var(--primary);box-shadow:0 0 0 2px var(--primary-dim)}
 .search-inp::placeholder{color:var(--muted)}
-.filter-sel{background:var(--card);border:1px solid var(--border2);color:var(--text2);border-radius:8px;padding:7px 10px;font-size:12px;outline:none;cursor:pointer;font-family:inherit}
+.filter-divider{width:1px;height:18px;background:var(--border2);margin:0 4px;flex-shrink:0}
+.filter-sel{background:var(--card);border:1px solid var(--border2);color:var(--text2);border-radius:8px;padding:7px 10px;font-size:12px;outline:none;cursor:pointer;font-family:inherit;transition:border .15s}
 .filter-sel:focus{border-color:var(--primary)}
-.refresh-btn{background:var(--card2);border:1px solid var(--border2);color:var(--text2);border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px;margin-left:auto;transition:all .15s}
-.refresh-btn:hover{border-color:var(--primary);color:var(--primary)}
+.refresh-btn{background:transparent;border:1px solid var(--border2);color:var(--muted);border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px;margin-left:auto;transition:all .15s}
+.refresh-btn:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-dim)}
 
 /* ── Table ── */
 .table-wrap{padding:20px 28px;overflow-x:auto}
-table{width:100%;border-collapse:separate;border-spacing:0;font-size:12px}
-thead tr{background:var(--bg)}
-th{padding:9px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;border-bottom:1px solid var(--border2);white-space:nowrap;cursor:pointer;user-select:none}
-th:hover{color:var(--text2)}
-th.sort-asc::after{content:' ↑';color:var(--primary)}
-th.sort-desc::after{content:' ↓';color:var(--primary)}
-tbody tr{transition:background .15s;cursor:pointer}
-tbody tr:hover{background:rgba(0,212,170,.04)}
-td{padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
-tbody tr:last-child td{border-bottom:none}
+.table-card{background:var(--card);border:1px solid var(--border2);border-radius:12px;overflow:hidden}
+#dashboardView table{width:100%;border-collapse:collapse;font-size:12px}
+#dashboardView thead{background:var(--bg2)}
+#dashboardView th{padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;border-bottom:2px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none;transition:color .12s}
+#dashboardView th:hover{color:var(--text)}
+#dashboardView th.sort-asc::after{content:' ↑';color:var(--primary)}
+#dashboardView th.sort-desc::after{content:' ↓';color:var(--primary)}
+#dashboardView tbody tr{transition:background .12s;cursor:pointer;border-bottom:1px solid var(--border)}
+#dashboardView tbody tr:last-child{border-bottom:none}
+#dashboardView tbody tr:nth-child(even){background:rgba(255,255,255,.014)}
+#dashboardView tbody tr:hover{background:rgba(0,212,170,.05)}
+#dashboardView td{padding:12px 14px;vertical-align:middle}
+.co-cell{display:flex;align-items:center;gap:10px}
+.co-avatar{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#0d1b2e;flex-shrink:0}
 
 /* ── Badges ── */
 .badge{display:inline-flex;align-items:center;border-radius:20px;padding:3px 9px;font-size:10px;font-weight:700;white-space:nowrap}
@@ -458,10 +468,10 @@ tbody tr:last-child td{border-bottom:none}
 .close-btn:hover{border-color:var(--danger);color:var(--danger)}
 .panel-body{padding:20px 24px;flex:1}
 .panel-section{margin-bottom:20px}
-.panel-section-title{font-size:10px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid var(--border)}
-.detail-row{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid rgba(31,53,80,.5)}
+.panel-section-title{font-size:10px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;padding:6px 10px;background:rgba(0,212,170,.06);border-left:3px solid var(--primary);border-radius:0 6px 6px 0}
+.detail-row{display:flex;justify-content:space-between;align-items:flex-start;padding:6px 0;border-bottom:1px solid rgba(31,53,80,.5)}
 .detail-row:last-child{border-bottom:none}
-.detail-key{font-size:11px;color:var(--muted);font-weight:500;flex-shrink:0;margin-right:12px}
+.detail-key{font-size:11px;color:var(--muted);font-weight:600;flex-shrink:0;margin-right:12px}
 .detail-val{font-size:11px;color:var(--text2);text-align:right;word-break:break-word}
 .detail-val.highlight{color:var(--primary);font-weight:600}
 .panel-actions{padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;position:sticky;bottom:0;background:var(--card)}
@@ -618,6 +628,9 @@ function freshSt(){return{
   csm:'',
   docGenerating:false,docError:'',lastDocHtml:'',lastDocRaw:'',planLoading:false,planError:'',projectPlan:[],
   mmGenerating:false,mmError:'',
+  // import / auto-generate
+  importLoading:false,importError:'',importFile:'',importDone:false,
+  autoGenDocTriggered:false,autoGenPlanTriggered:false,
 };}
 let st=freshSt();
 let showAdvUC=false;
@@ -795,6 +808,13 @@ function render(){
   try{ drawFooter(); }catch(e){ console.error('footer:',e); }
   try{ drawTips(); }catch(e){ console.error('tips:',e); }
   try{ save(); }catch(e){ console.error('save error:',e); }
+  // Auto-trigger generation on first arrival at Review (step 5) and Plan (step 6)
+  if(st.step===5&&!st.submitted&&!st.docGenerating&&!st.lastDocHtml&&!st.autoGenDocTriggered){
+    st.autoGenDocTriggered=true;setTimeout(genDoc,800);
+  }
+  if(st.step===6&&!st.submitted&&!st.planLoading&&!(st.projectPlan&&st.projectPlan.length)&&!st.autoGenPlanTriggered){
+    st.autoGenPlanTriggered=true;setTimeout(genProjectPlan,800);
+  }
 }
 
 function drawProg(){
@@ -830,7 +850,45 @@ function S1(){
     ?`<div><label class="lbl">HubSpot edition?</label><select class="sel" onchange="st.crmEdition=this.value;save()">${['','Essential','Professional','Enterprise'].map(v=>`<option value="${v}"${st.crmEdition===v?' selected':''}>${v||'Select…'}</option>`).join('')}</select></div>`
     :`<div><label class="lbl">CRM edition / version</label><input class="inp" placeholder="e.g. Enterprise, v2023…" value="${esc(st.crmEdition)}" oninput="st.crmEdition=this.value;save()"></div>`;
 
-  return `<div class="card">
+  const importCard=st.importLoading
+    ?`<div class="card" style="margin-bottom:12px;display:flex;align-items:center;gap:12px;padding:18px 20px">
+<span class="spin" style="width:16px;height:16px;border-width:2.5px;flex-shrink:0"></span>
+<div>
+  <div style="font-size:13px;font-weight:600;color:var(--text)">Analysing ${esc(st.importFile)}…</div>
+  <div style="font-size:11px;color:var(--muted);margin-top:2px">Claude is reading the document and pre-filling the form. Takes about 15 seconds.</div>
+</div></div>`
+    :st.importDone
+    ?`<div class="fok" style="margin-bottom:12px">
+<div style="display:flex;align-items:center;gap:10px">
+  <span style="font-size:22px">✨</span>
+  <div>
+    <div style="font-size:13px;font-weight:600">Auto-filled from ${esc(st.importFile)}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:1px">Review the fields below — adjust anything that looks off.</div>
+  </div>
+</div>
+<button class="btn btn-d btn-sm" onclick="st.importDone=false;st.importFile='';st.importError='';render()">Clear</button>
+</div>`
+    :`<div class="card" style="margin-bottom:12px;border-style:dashed;background:rgba(0,212,170,.03)">
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+  <span style="font-size:17px">✨</span>
+  <div>
+    <div style="font-size:13px;font-weight:700;color:var(--text)">Auto-fill from a document</div>
+    <div style="font-size:11px;color:var(--muted)">Drop a contract, proposal, or RFP — Claude reads it and pre-fills the entire form</div>
+  </div>
+</div>
+<div class="dz" style="padding:14px" onclick="document.getElementById('importFI').click()"
+  ondragover="event.preventDefault();this.classList.add('ov')"
+  ondragleave="this.classList.remove('ov')"
+  ondrop="this.classList.remove('ov');handleImportDrop(event)">
+  <input type="file" id="importFI" accept=".pdf,.txt,.md,.html" style="display:none" onchange="handleImportFile(this)">
+  <div style="font-size:24px;margin-bottom:6px">📄</div>
+  <div style="font-size:12px;font-weight:600;margin-bottom:3px">Drop a PDF here, or click to browse</div>
+  <div style="font-size:11px;color:var(--muted)">PDF, TXT, or Markdown — up to 3 MB · Optional</div>
+</div>
+${st.importError?`<div style="margin-top:8px;font-size:11px;color:#f87171">⚠️ ${esc(st.importError)}</div>`:''}
+</div>`;
+
+  return `${importCard}<div class="card">
 <div class="ptitle">Tell us about <em>your business</em></div>
 <div class="psub">These answers shape your entire DealHub configuration — they feed directly into the design document your implementation team will use to build.</div>
 
@@ -1327,6 +1385,85 @@ async function analyseProducts(){
 }
 
 function showMsg(id,msg,e){const el=document.getElementById(id);if(!el)return;el.textContent=msg;el.style.color=e?'#f87171':'var(--primary)';if(!e)setTimeout(()=>{if(el)el.textContent='';},5000);}
+
+// ── IMPORT / AUTO-FILL ──────────────────────────────────────────────────────
+function handleImportDrop(e){e.preventDefault();const f=e.dataTransfer.files[0];if(f)startImport(f);}
+function handleImportFile(inp){const f=inp.files[0];if(f)startImport(f);inp.value='';}
+
+function readAsBase64(file){
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=e=>res(e.target.result.split(',')[1]);
+    r.onerror=rej;
+    r.readAsDataURL(file);
+  });
+}
+
+async function startImport(file){
+  const MAX=3*1024*1024;
+  if(file.size>MAX){st.importError='File too large — please use a document under 3 MB.';render();return;}
+  const ext=(file.name.split('.').pop()||'').toLowerCase();
+  if(!['pdf','txt','md','html','htm'].includes(ext)){
+    st.importError='Please use a PDF, TXT, or Markdown file.';render();return;
+  }
+  st.importFile=file.name;st.importLoading=true;st.importError='';render();
+
+  const sys=`You are a DealHub CPQ discovery specialist. Analyse the document and extract CPQ configuration information. Return ONLY a valid JSON object — no markdown, no explanation, no trailing text.
+Include only fields where you found clear evidence (omit or use "" if unknown):
+{"co":"company name","industry":"vertical e.g. SaaS","crm":"Salesforce|HubSpot|Microsoft Dynamics|Other","contractLength":"12|24|36|custom","goLive":"target date or quarter","adminName":"","adminEmail":"","addCtx":"2-3 sentence summary of pain points and goals","pricingModels":["per_user|flat|tiered|platform_plus_user|per_transaction|custom"],"productFamilies":"comma-separated product family names","quoteCreators":"who builds quotes","sellingFlow":"quoting process description","approvalText":"approval workflow description","payTerms":"","netDays":"","autoRenew":"","msa":"","useCases":["multiyear|ramp|partners|trials|overage|optional|cpi|redline|docusign|marketplace|custom|integrations"]}`;
+
+  try{
+    let messages;
+    if(ext==='pdf'){
+      const b64=await readAsBase64(file);
+      messages=[{role:'user',content:[
+        {type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}},
+        {type:'text',text:'Extract all CPQ-relevant information from this document.'}
+      ]}];
+    } else {
+      const text=await file.text();
+      messages=[{role:'user',content:'Extract all CPQ-relevant information from this document.\n\nDOCUMENT:\n'+text.slice(0,30000)}];
+    }
+    const res=await fetch(PX,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      model:'claude-haiku-4-5-20251001',max_tokens:1500,system:sys,messages
+    })});
+    const d=await res.json();
+    if(d.error)throw new Error(d.error.message||JSON.stringify(d.error));
+    const raw=((d.content&&d.content[0]?d.content[0].text:'')||'').replace(/```json|```/g,'').trim();
+    const parsed=JSON.parse(raw);
+    applyImportData(parsed);
+    st.importDone=true;
+    assistantHistory.push({role:'assistant',content:`✨ I've read <strong>${esc(file.name)}</strong> and pre-filled the form. Check the fields below — I've highlighted everything I found. Correct anything that looks off, then click Continue.`});
+    renderAssistant();
+  }catch(e){
+    st.importError='Could not analyse document: '+e.message;
+  }
+  st.importLoading=false;
+  save();render();
+}
+
+function applyImportData(p){
+  if(p.co){st.co=p.co;const el=document.getElementById('coInp');if(el)el.value=st.co;}
+  if(p.industry)st.industry=p.industry;
+  if(p.crm&&['Salesforce','HubSpot','Microsoft Dynamics','Other'].includes(p.crm))st.crm=p.crm;
+  if(p.contractLength)st.contractLength=String(p.contractLength);
+  if(p.goLive)st.goLive=p.goLive;
+  if(p.adminName)st.adminName=p.adminName;
+  if(p.adminEmail)st.adminEmail=p.adminEmail;
+  if(p.addCtx)st.addCtx=p.addCtx;
+  if(p.pricingModels&&p.pricingModels.length){st.pricingModels=p.pricingModels;st.pricingModel=p.pricingModels.join(',');}
+  if(p.productFamilies)st.productFamilies=p.productFamilies;
+  if(p.quoteCreators)st.quoteCreators=p.quoteCreators;
+  if(p.sellingFlow)st.sellingFlow=p.sellingFlow;
+  if(p.approvalText)st.approvalText=p.approvalText;
+  if(p.payTerms)st.payTerms=p.payTerms;
+  if(p.netDays)st.netDays=p.netDays;
+  if(p.autoRenew)st.autoRenew=p.autoRenew;
+  if(p.msa)st.msa=p.msa;
+  if(p.useCases&&Array.isArray(p.useCases)&&p.useCases.length){
+    st.useCases=st.useCases.map(u=>p.useCases.includes(u.k)?{...u,on:true}:u);
+  }
+}
 
 // ── GENERATE DESIGN DOC ─────────────────────────────────────────────────────
 async function genDoc(){
@@ -2031,6 +2168,8 @@ function switchTab(tab) {
     tabDash.style.background = 'transparent';
     tabDash.style.color = 'var(--muted)';
     coWrap.style.display = 'flex';
+    closePanel();
+    render();
   } else {
     discView.style.display = 'none';
     dashView.style.display = 'block';
@@ -2135,8 +2274,10 @@ function sortBy(col){
   filterRows();
 }
 
+const AVATAR_COLORS=['#00d4aa','#60a5fa','#f472b6','#fb923c','#a78bfa','#34d399','#fbbf24','#f87171'];
+function avatarColor(name){return AVATAR_COLORS[((name||'?').toUpperCase().charCodeAt(0)||0)%AVATAR_COLORS.length];}
+
 function renderTable(rows){
-  // Sort
   rows=[...rows].sort((a,b)=>{
     const av=a[sortCol]||'',bv=b[sortCol]||'';
     const cmp=av<bv?-1:av>bv?1:0;
@@ -2163,8 +2304,12 @@ function renderTable(rows){
     const scCol=sc>=80?'var(--primary)':sc>=40?'var(--warn)':'var(--danger)';
     const scoreCell=`<div class="score-bar-wrap"><div class="score-bar"><div class="score-bar-fill" style="width:${sc}%;background:${scCol}"></div></div><span class="score-val" style="color:${scCol}">${sc}%</span></div>`;
     const stepLabel=['About You','Products','How You Sell','Decision Tree','Approvals','Review','Project Plan'][r.step]||'—';
+    const coName=r.company||'Unnamed';
+    const initials=(coName.trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('')).toUpperCase()||'?';
+    const avatarBg=avatarColor(coName);
+    const coCell=`<div class="co-cell"><div class="co-avatar" style="background:${avatarBg}">${esc(initials)}</div><span style="font-weight:600;color:var(--text)">${esc(coName)}</span></div>`;
     return `<tr onclick="openPanel('${r.id}')">
-      <td style="font-weight:600;color:var(--text)">${esc(r.company||'Unnamed')}</td>
+      <td>${coCell}</td>
       <td style="color:var(--muted)">${esc(r.industry||'—')}</td>
       <td>${r.crm?`<span class="tag">${esc(r.crm)}</span>`:'—'}</td>
       <td>${scoreCell}</td>
@@ -2175,7 +2320,7 @@ function renderTable(rows){
     </tr>`;
   }).join('')}</tbody>`;
 
-  document.getElementById('tableArea').innerHTML=`<table>${thead}${tbody}</table>`;
+  document.getElementById('tableArea').innerHTML=`<div class="table-card"><table>${thead}${tbody}</table></div>`;
 }
 
 // ── Detail panel ────────────────────────────────────────────────────────────
@@ -2186,10 +2331,15 @@ function openPanel(id){
   const scCol=sc>=80?'var(--primary)':sc>=40?'var(--warn)':'var(--danger)';
   const en=(s.useCases||[]).filter(u=>u.on).map(u=>u.n);
 
+  const panelCoName=r.company||'Unnamed';
+  const panelInitials=(panelCoName.trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('')).toUpperCase()||'?';
   document.getElementById('panelHdr').innerHTML=`
-<div>
-  <div class="panel-co">${esc(r.company||'Unnamed')}</div>
-  <div class="panel-meta">ID: ${r.id.slice(0,8)}… · Last updated: ${fmt(r.updated_at)}</div>
+<div style="display:flex;align-items:center;gap:12px;min-width:0">
+  <div class="co-avatar" style="background:${avatarColor(panelCoName)};width:38px;height:38px;border-radius:10px;font-size:14px;flex-shrink:0">${esc(panelInitials)}</div>
+  <div style="min-width:0">
+    <div class="panel-co">${esc(panelCoName)}</div>
+    <div class="panel-meta">ID: ${r.id.slice(0,8)}… · Last updated: ${fmt(r.updated_at)}</div>
+  </div>
 </div>
 <button class="close-btn" onclick="closePanel()">✕ Close</button>`;
 
@@ -2378,15 +2528,16 @@ initApp();
   </div>
 
   <div class="stats-bar" id="statsBar">
-    <div class="stat"><div class="stat-n" id="statTotal">—</div><div class="stat-l">Total discoveries</div></div>
-    <div class="stat highlight"><div class="stat-n" id="statSubmitted">—</div><div class="stat-l">Submitted ✓</div></div>
-    <div class="stat"><div class="stat-n" id="statInProgress">—</div><div class="stat-l">In progress</div></div>
-    <div class="stat"><div class="stat-n" id="statAvgScore">—</div><div class="stat-l">Avg completion</div></div>
-    <div class="stat"><div class="stat-n" id="statToday">—</div><div class="stat-l">Updated today</div></div>
+    <div class="stat"><span class="stat-icon">📋</span><div class="stat-n" id="statTotal">—</div><div class="stat-l">Total discoveries</div></div>
+    <div class="stat highlight"><span class="stat-icon">✓</span><div class="stat-n" id="statSubmitted">—</div><div class="stat-l">Submitted</div></div>
+    <div class="stat"><span class="stat-icon">⏳</span><div class="stat-n" id="statInProgress">—</div><div class="stat-l">In progress</div></div>
+    <div class="stat"><span class="stat-icon">📊</span><div class="stat-n" id="statAvgScore">—</div><div class="stat-l">Avg completion</div></div>
+    <div class="stat"><span class="stat-icon">🕐</span><div class="stat-n" id="statToday">—</div><div class="stat-l">Updated today</div></div>
   </div>
 
   <div class="filters">
-    <input class="search-inp" id="searchInp" placeholder="Search by company, CSM, or industry…" oninput="filterRows()">
+    <div class="search-wrap"><span class="search-icon">⌕</span><input class="search-inp" id="searchInp" placeholder="Search by company, CSM, or industry…" oninput="filterRows()"></div>
+    <div class="filter-divider"></div>
     <select class="filter-sel" id="statusFilter" onchange="filterRows()">
       <option value="">All statuses</option>
       <option value="submitted">Submitted</option>
