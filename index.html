@@ -2032,12 +2032,14 @@ DH owns build/config. Client owns sign-offs, data provision, UAT execution. Both
 Tailor task names and notes to the client context provided.`;
 
   try{
-    const res=await fetch(PX,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-      model:'claude-haiku-4-5-20251001',
-      max_tokens:3000,
-      system:sys,
-      messages:[{role:'user',content:ctx}]
-    })});
+    const reqBody=JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:2000,system:sys,messages:[{role:'user',content:ctx}]});
+    let res=await fetch(PX,{method:'POST',headers:{'Content-Type':'application/json'},body:reqBody});
+    if(res.status===429){
+      st.planError='Rate limit — retrying in 60 seconds…';render();
+      await new Promise(r=>setTimeout(r,62000));
+      st.planError='';
+      res=await fetch(PX,{method:'POST',headers:{'Content-Type':'application/json'},body:reqBody});
+    }
     const text=await res.text();
     if(!res.ok){st.planError=`HTTP ${res.status}: ${text.slice(0,200)}`;st.planLoading=false;render();return;}
     let d;
