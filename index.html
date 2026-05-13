@@ -495,7 +495,7 @@ function freshSt(){return{
   outputDocFiles:[],brandUrl:'',brandAnalysis:'',outputDocLoading:false,outputDocError:'',
   // S6
   csm:'',
-  docGenerating:false,docError:'',lastDocHtml:'',lastDocRaw:'',planLoading:false,planError:'',projectPlan:[],
+  docGenerating:false,docError:'',docStatus:'',lastDocHtml:'',lastDocRaw:'',planLoading:false,planError:'',projectPlan:[],
   mmGenerating:false,mmError:'',
   // import / auto-generate
   importLoading:false,importError:'',importFile:'',importDone:false,
@@ -1316,6 +1316,7 @@ ${en.length?`<div style="margin-bottom:20px">
       <button id="pdfBtn" class="btn btn-p" onclick="downloadDocPDF()" style="flex:1;justify-content:center;font-size:11px">⬇️ Download PDF</button>
       <button class="btn" onclick="downloadDoc()" style="flex:1;justify-content:center;font-size:11px" title="Download as HTML file">⬇️ .html</button>
     </div>`:''}
+    ${st.docStatus?`<div style="margin-top:8px;font-size:10px;color:var(--primary)">⏳ ${esc(st.docStatus)}</div>`:''}
     ${st.docError?`<div style="margin-top:8px;font-size:10px;color:#f87171">⚠️ ${esc(st.docError)}</div>`:''}
   </div>
 
@@ -1531,7 +1532,7 @@ function applyImportData(p){
 
 // ── GENERATE DESIGN DOC ─────────────────────────────────────────────────────
 async function genDoc(){
-  st.docGenerating=true;st.docError='';render();
+  st.docGenerating=true;st.docError='';st.docStatus='';render();
   const en=st.useCases.filter(u=>u.on);
   const matrix=st.approvalRows.map(r=>`${r.role}: up to ${r.max} → ${r.approver}`).join('\n');
   const rules=st.ruleRows.filter(r=>r.rule).map(r=>`${r.rule} → Step1: ${r.step1}${r.step2?' → Step2: '+r.step2:''}`).join('\n');
@@ -1662,10 +1663,10 @@ SECTION INSTRUCTIONS:
       if(res.status===429){
         // Show countdown to user, then retry once
         for(let s=65;s>0;s--){
-          st.docError=`Rate limit hit on ${label} — retrying in ${s}s…`;render();
+          st.docStatus=`Rate limit hit — retrying in ${s}s…`;render();
           await new Promise(r=>setTimeout(r,1000));
         }
-        st.docError='';render();
+        st.docStatus='';render();
         const res2=await fetch(PX,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
         const text2=await res2.text();
         if(!res2.ok) throw new Error(`HTTP ${res2.status}: ${text2.slice(0,200)}`);
@@ -1679,10 +1680,10 @@ SECTION INSTRUCTIONS:
 
   try{
     // Sequential calls to stay inside the 4,000 output tokens/min rate limit
-    st.docError='Generating sections 1–4…';render();
+    st.docStatus='Generating sections 1–4…';render();
     const text1=await docCall({model:DOC_MODEL,max_tokens:4000,system:sys,messages:[{role:'user',content:`Generate sections 1, 2, 3, 4 of the Configuration Design Document. Follow all data integrity rules strictly — do not add any information not in the context.\n\nCONTEXT:\n${ctx}`}]},'Part 1');
 
-    st.docError='Generating sections 5–8…';render();
+    st.docStatus='Generating sections 5–8…';render();
     const text2=await docCall({model:DOC_MODEL,max_tokens:4000,system:sys,messages:[{role:'user',content:`Generate sections 5, 6, 7, 8 of the Configuration Design Document. Follow all data integrity rules strictly — include every product from the SKU SAMPLE exactly as listed, do not invent any values.\n\nCONTEXT:\n${ctx}`}]},'Part 2');
 
     let d1,d2;
@@ -1693,7 +1694,7 @@ SECTION INSTRUCTIONS:
     const c1=(d1.content&&d1.content[0]?d1.content[0].text:'')||'';
     const c2=(d2.content&&d2.content[0]?d2.content[0].text:'')||'';
     const docContent=c1+'\n'+c2;
-    st.docGenerating=false;st.docError='';
+    st.docGenerating=false;st.docError='';st.docStatus='';
     st.lastDocRaw=docContent;
     st.lastDocHtml=buildDocPage(docContent,false);
     save();render();
