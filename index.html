@@ -1528,7 +1528,7 @@ ${st.rdsObservations.map(o=>`• ${o.currentState} → ${o.painPoint}`).join('\n
 KEY CLIENT QUOTES (use verbatim in design doc where appropriate):
 ${st.rdsQuotes.map(q=>`"${q.quote}" — ${q.speaker}`).join('\n')}
 CONFIGURATION IMPLICATIONS FROM TRANSCRIPT:
-${st.rdsImplications.map(r=>`• ${r.observation} → ${r.configImpact} (${r.section})`).join('\n')}`:''}`);
+${st.rdsImplications.map(r=>`• ${r.observation} → ${r.configImpact} (${r.section})`).join('\n')}`:''}`;
 
   const sys=`You are a senior DealHub Solution Architect writing a Configuration Design Document. You have reviewed 5+ real DealHub design documents and know the exact format used by DealHub Professional Services.
 
