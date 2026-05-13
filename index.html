@@ -795,10 +795,10 @@ function S1(){
   ondragover="event.preventDefault();this.classList.add('ov')"
   ondragleave="this.classList.remove('ov')"
   ondrop="this.classList.remove('ov');handleImportDrop(event)">
-  <input type="file" id="importFI" accept=".pdf,.txt,.md,.html" style="display:none" onchange="handleImportFile(this)">
+  <input type="file" id="importFI" accept=".pdf,.txt,.md,.html,.xlsx,.xls,.csv" style="display:none" onchange="handleImportFile(this)">
   <div style="font-size:24px;margin-bottom:6px">📄</div>
-  <div style="font-size:12px;font-weight:600;margin-bottom:3px">Drop a PDF here, or click to browse</div>
-  <div style="font-size:11px;color:var(--muted)">PDF, TXT, or Markdown — up to 3 MB · Optional</div>
+  <div style="font-size:12px;font-weight:600;margin-bottom:3px">Drop a file here, or click to browse</div>
+  <div style="font-size:11px;color:var(--muted)">PDF, Excel (.xlsx/.xls), CSV, TXT, or Markdown — up to 3 MB · Optional</div>
 </div>
 ${st.importError?`<div style="margin-top:8px;font-size:11px;color:#f87171">⚠️ ${esc(st.importError)}</div>`:''}
 </div>`;
@@ -1318,8 +1318,8 @@ async function startImport(file){
   const MAX=3*1024*1024;
   if(file.size>MAX){st.importError='File too large — please use a document under 3 MB.';render();return;}
   const ext=(file.name.split('.').pop()||'').toLowerCase();
-  if(!['pdf','txt','md','html','htm'].includes(ext)){
-    st.importError='Please use a PDF, TXT, or Markdown file.';render();return;
+  if(!['pdf','txt','md','html','htm','xlsx','xls','csv'].includes(ext)){
+    st.importError='Please use a PDF, TXT, Markdown, or Excel/CSV file.';render();return;
   }
   st.importFile=file.name;st.importLoading=true;st.importError='';render();
 
@@ -1335,6 +1335,18 @@ Include only fields where you found clear evidence (omit or use "" if unknown):
         {type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}},
         {type:'text',text:'Extract all CPQ-relevant information from this document.'}
       ]}];
+    } else if(['xlsx','xls','csv'].includes(ext)){
+      const buf=await file.arrayBuffer();
+      const wb=XLSX.read(buf,{type:'array'});
+      const lines=[];
+      wb.SheetNames.forEach(name=>{
+        const ws=wb.Sheets[name];
+        const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+        lines.push(`=== Sheet: ${name} ===`);
+        rows.forEach(r=>{ if(r.some(c=>String(c).trim())) lines.push(r.map(c=>String(c)).join('\t')); });
+      });
+      const text=lines.join('\n').slice(0,30000);
+      messages=[{role:'user',content:'Extract all CPQ-relevant information from this spreadsheet.\n\nSPREADSHEET:\n'+text}];
     } else {
       const text=await file.text();
       messages=[{role:'user',content:'Extract all CPQ-relevant information from this document.\n\nDOCUMENT:\n'+text.slice(0,30000)}];
