@@ -1919,22 +1919,28 @@ SECTION INSTRUCTIONS:
   }
 
   try{
-    // Sequential calls to stay inside the 4,000 output tokens/min rate limit
-    st.docStatus='Generating sections 1–4…';render();
-    const text1=await docCall({model:DOC_MODEL,max_tokens:4000,system:sys,messages:[{role:'user',content:`Generate the Stakeholders table followed by these 4 sections of the CPQ Business Process Discovery & Design Document:\n1. "Context & The Why"\n2. "Goals & Success Criteria"\n3. "Go-To-Market Structure"\n4. "Current State: How It Works Today"\n\nUse the exact section titles above. Do NOT use Executive Summary or any other title. Follow all data integrity rules — only information from the context.\n\nCONTEXT:\n${ctx}`}]},'Part 1');
-
-    st.docStatus='Generating sections 5–8…';render();
-    const text2=await docCall({model:DOC_MODEL,max_tokens:4000,system:sys,messages:[{role:'user',content:`Generate these 4 sections of the CPQ Business Process Discovery & Design Document:\n5. "Products & Pricing"\n6. "DealHub Configuration Design"\n7. "Approval Workflows"\n8. "Output Documents, DealRoom & Build Sequence"\n\nUse the exact section titles above. Include EVERY product from the SKU SAMPLE exactly as listed. For section 6 question groups, use EXACT product family names from the SKU data. Do not invent any values.\n\nCONTEXT:\n${ctx}`}]},'Part 2');
-
-    let d1,d2;
-    try{d1=JSON.parse(text1);}catch(pe){st.docError=`Bad JSON (part 1): ${text1.slice(0,150)}`;st.docGenerating=false;render();return;}
-    try{d2=JSON.parse(text2);}catch(pe){st.docError=`Bad JSON (part 2): ${text2.slice(0,150)}`;st.docGenerating=false;render();return;}
-    if(d1.error){st.docError=typeof d1.error==='string'?d1.error:(d1.error.message||JSON.stringify(d1.error));st.docGenerating=false;render();return;}
-    if(d2.error){st.docError=typeof d2.error==='string'?d2.error:(d2.error.message||JSON.stringify(d2.error));st.docGenerating=false;render();return;}
     const stripFences=s=>s.replace(/^```[\w]*\r?\n?/,'').replace(/\r?\n?```\s*$/,'').trim();
-    const c1=stripFences((d1.content&&d1.content[0]?d1.content[0].text:'')||'');
-    const c2=stripFences((d2.content&&d2.content[0]?d2.content[0].text:'')||'');
-    const docContent=c1+'\n'+c2;
+    const parseCall=(text,label)=>{
+      let d;
+      try{d=JSON.parse(text);}catch(pe){throw new Error(`Bad JSON (${label}): ${text.slice(0,150)}`);}
+      if(d.error)throw new Error(typeof d.error==='string'?d.error:(d.error.message||JSON.stringify(d.error)));
+      return stripFences((d.content&&d.content[0]?d.content[0].text:'')||'');
+    };
+
+    // 3 sequential calls — each covers ~2-3 sections to stay within token limits
+    st.docStatus='Part 1 of 3 — Context, Goals & GTM…';render();
+    const text1=await docCall({model:DOC_MODEL,max_tokens:3500,system:sys,messages:[{role:'user',content:`Generate the Stakeholders table followed by these 3 sections of the CPQ Business Process Discovery & Design Document:\n1. "Context & The Why"\n2. "Goals & Success Criteria"\n3. "Go-To-Market Structure"\n\nUse the exact section titles. No other titles. Only use information from the context.\n\nCONTEXT:\n${ctx}`}]},'Part 1');
+
+    st.docStatus='Part 2 of 3 — Current State, Products & Config…';render();
+    const text2=await docCall({model:DOC_MODEL,max_tokens:3500,system:sys,messages:[{role:'user',content:`Generate these 3 sections of the CPQ Business Process Discovery & Design Document:\n4. "Current State: How It Works Today"\n5. "Products & Pricing"\n6. "DealHub Configuration Design"\n\nSection 5: include EVERY product from the SKU SAMPLE exactly — no omissions.\nSection 6: use EXACT product family names from the SKU data as question group IDs. Include full question tables.\nDo not invent any values.\n\nCONTEXT:\n${ctx}`}]},'Part 2');
+
+    st.docStatus='Part 3 of 3 — Approvals, Output Docs & Build Plan…';render();
+    const text3=await docCall({model:DOC_MODEL,max_tokens:3500,system:sys,messages:[{role:'user',content:`Generate these 2 sections of the CPQ Business Process Discovery & Design Document:\n7. "Approval Workflows"\n8. "Output Documents, DealRoom & Build Sequence"\n\nSection 7: use exact roles and thresholds from DISCOUNT MATRIX. If empty, flag as ACTION REQUIRED.\nSection 8: include a full 10-step build sequence table and a risks table.\nDo not invent any values.\n\nCONTEXT:\n${ctx}`}]},'Part 3');
+
+    const c1=parseCall(text1,'Part 1');
+    const c2=parseCall(text2,'Part 2');
+    const c3=parseCall(text3,'Part 3');
+    const docContent=c1+'\n'+c2+'\n'+c3;
     st.docGenerating=false;st.docError='';st.docStatus='';
     st.lastDocRaw=docContent;
     st.lastDocHtml=buildDocPage(docContent,false);
