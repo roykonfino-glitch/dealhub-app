@@ -444,6 +444,7 @@ const STEPS=[
   {id:'transcript', label:'Client Transcript',  e:'🎙️', csmOnly:true},
   {id:'rules',      label:'Approvals & Terms',  e:'📋'},
   {id:'output',     label:'Output Documents',   e:'📄'},
+  {id:'pricing',    label:'Price Calculator',   e:'🧮'},
   {id:'review',     label:'Review & Generate',  e:'🚀'},
   {id:'plan',       label:'Project Plan',        e:'📅', csmOnly:true},
 ];
@@ -493,6 +494,8 @@ function freshSt(){return{
   rdsObservations:[],rdsQuotes:[],rdsImplications:[],rdsUseCaseSuggestions:[],
   // S_OutputDocs
   outputDocFiles:[],brandUrl:'',brandAnalysis:'',outputDocLoading:false,outputDocError:'',
+  // S_PriceCalc
+  pricingCalcFiles:[],pricingCalcUrl:'',
   // S6
   csm:'',
   docGenerating:false,docError:'',docStatus:'',lastDocHtml:'',lastDocRaw:'',planLoading:false,planError:'',projectPlan:[],
@@ -593,7 +596,7 @@ function render(){
   try{ drawProg(); }catch(e){ console.error('drawProg error:',e); }
   if(st.submitted){try{renderDone();drawFooter();}catch(e){console.error('done error:',e);}return;}
   try{
-    const fns=[S1,S2,S3,S_RDS,S5,S_OutputDocs,S6,S7_Plan];
+    const fns=[S1,S2,S3,S_RDS,S5,S_OutputDocs,S_PriceCalc,S6,S7_Plan];
     const stepFn=fns[st.step]||S1;
     const stepHtml=stepFn();
     const el=document.getElementById('content');
@@ -607,10 +610,10 @@ function render(){
   try{ drawTips(); }catch(e){ console.error('tips:',e); }
   try{ save(); }catch(e){ console.error('save error:',e); }
   // Auto-trigger generation on first arrival at Review (step 6) and Plan (step 7)
-  if(st.step===6&&!st.submitted&&!st.docGenerating&&!st.lastDocHtml&&!st.autoGenDocTriggered){
+  if(st.step===7&&!st.submitted&&!st.docGenerating&&!st.lastDocHtml&&!st.autoGenDocTriggered){
     st.autoGenDocTriggered=true;setTimeout(genDoc,800);
   }
-  if(st.step===7&&!st.submitted&&!st.planLoading&&!(st.projectPlan&&st.projectPlan.length)&&!st.autoGenPlanTriggered){
+  if(st.step===8&&!st.submitted&&!st.planLoading&&!(st.projectPlan&&st.projectPlan.length)&&!st.autoGenPlanTriggered){
     st.autoGenPlanTriggered=true;setTimeout(genProjectPlan,800);
   }
 }
@@ -1136,6 +1139,78 @@ function removeOutputFile(i){
   render();
 }
 
+// ══ S_PriceCalc — PRICE CALCULATOR ═══════════════════════════════════════════
+let _pricingFileObjects=[];
+
+function S_PriceCalc(){
+  const files=st.pricingCalcFiles||[];
+  const fileListHtml=files.length?`
+    <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">
+      ${files.map((f,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg);border:1px solid var(--border2);border-radius:7px;padding:7px 10px">
+        <span style="font-size:11px;color:var(--text2)">📎 ${esc(f.name)}</span>
+        <button onclick="removePricingFile(${i})" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:0 4px" title="Remove">✕</button>
+      </div>`).join('')}
+    </div>`:'';
+
+  return `<div class="card">
+<div class="ptitle">Price <em>Calculator</em></div>
+<div class="psub">Upload your pricing spreadsheet or rate card, or share a link to your pricing calculator — we'll reference this when designing the CPQ configuration.</div>
+
+<label class="lbl">Upload Pricing File</label>
+<div class="shint" style="margin-bottom:8px">Excel, CSV, or PDF — rate cards, price books, discount schedules</div>
+<div class="dz" style="padding:20px;min-height:100px;display:flex;flex-direction:column;align-items:center;justify-content:center"
+  onclick="document.getElementById('pcFileFI').click()"
+  ondragover="event.preventDefault();this.classList.add('ov')"
+  ondragleave="this.classList.remove('ov')"
+  ondrop="this.classList.remove('ov');handlePricingFileDrop(event)">
+  <input type="file" id="pcFileFI" accept=".xlsx,.xls,.csv,.pdf" multiple style="display:none" onchange="handlePricingFileAdd(this)">
+  <div style="font-size:28px;margin-bottom:6px">🧮</div>
+  <div style="font-size:12px;font-weight:600;color:var(--text)">Drop pricing files here or click to browse</div>
+  <div style="font-size:10px;color:var(--muted);margin-top:3px">Excel · CSV · PDF</div>
+</div>
+
+${fileListHtml}
+
+<div class="hr"></div>
+
+<label class="lbl">Pricing Calculator / Spreadsheet URL <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+<div class="shint" style="margin-bottom:8px">Google Sheets pricing model, pricing page, or rate card link</div>
+<input class="inp" placeholder="https://docs.google.com/spreadsheets/…" value="${esc(st.pricingCalcUrl)}" oninput="st.pricingCalcUrl=this.value;save()" style="max-width:520px">
+
+<div style="margin-top:16px;background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:12px 14px">
+  <div style="font-size:11px;font-weight:600;margin-bottom:4px">How this is used</div>
+  <div style="font-size:11px;color:var(--muted);line-height:1.7">The pricing file and link are referenced in the design document under Products & Pricing — helping the DealHub team understand your pricing structure, discount logic, and any calculator formulas that need to be replicated in the CPQ configuration.</div>
+</div>
+</div>`;
+}
+
+function handlePricingFileAdd(inp){
+  Array.from(inp.files).forEach(f=>{
+    if(!st.pricingCalcFiles.find(x=>x.name===f.name)){
+      st.pricingCalcFiles.push({name:f.name,type:f.type,size:f.size});
+      _pricingFileObjects.push(f);
+    }
+  });
+  inp.value='';render();
+}
+
+function handlePricingFileDrop(e){
+  e.preventDefault();
+  Array.from(e.dataTransfer.files).forEach(f=>{
+    if(!st.pricingCalcFiles.find(x=>x.name===f.name)){
+      st.pricingCalcFiles.push({name:f.name,type:f.type,size:f.size});
+      _pricingFileObjects.push(f);
+    }
+  });
+  render();
+}
+
+function removePricingFile(i){
+  st.pricingCalcFiles.splice(i,1);
+  _pricingFileObjects.splice(i,1);
+  render();
+}
+
 async function analyzeOutputDocs(){
   if(st.outputDocLoading)return;
   st.outputDocLoading=true;st.outputDocError='';render();
@@ -1644,7 +1719,12 @@ ${st.rdsImplications.map(r=>`• ${r.observation} → ${r.configImpact} (${r.sec
 ${st.brandAnalysis?`
 BRAND & OUTPUT DOCUMENT NOTES (use to inform DealRoom styling recommendations and output document structure):
 ${st.brandAnalysis}`:''}
-${st.brandUrl?`DealRoom / Marketing URL: ${st.brandUrl}`:''}`;
+${st.brandUrl?`DealRoom / Marketing URL: ${st.brandUrl}`:''}
+${(st.pricingCalcFiles&&st.pricingCalcFiles.length)||st.pricingCalcUrl?`
+PRICING CALCULATOR / RATE CARD:
+Files uploaded: ${st.pricingCalcFiles&&st.pricingCalcFiles.length?st.pricingCalcFiles.map(f=>f.name).join(', '):'None'}
+URL: ${st.pricingCalcUrl||'None'}
+(Reference these in the Products & Pricing section — note that a pricing calculator/rate card has been shared)`:''}`;
 
   const sys=`You are a senior DealHub Solution Architect and CPQ consultant. You write CPQ Business Process Discovery & Design Documents — professional, client-facing deliverables that capture discovery findings AND provide clear DealHub build direction in one document.
 
