@@ -495,7 +495,7 @@ function freshSt(){return{
   // S_OutputDocs
   outputDocFiles:[],brandUrl:'',brandAnalysis:'',outputDocLoading:false,outputDocError:'',
   // S_PriceCalc
-  pricingCalcFiles:[],pricingCalcUrl:'',
+  pricingCalcFiles:[],pricingCalcUrl:'',pricingCalcAnalysis:'',pricingCalcLoading:false,pricingCalcError:'',
   // S6
   csm:'',
   docGenerating:false,docError:'',docStatus:'',lastDocHtml:'',lastDocRaw:'',planLoading:false,planError:'',projectPlan:[],
@@ -1152,9 +1152,18 @@ function S_PriceCalc(){
       </div>`).join('')}
     </div>`:'';
 
+  const analysisHtml=st.pricingCalcAnalysis?`
+    <div style="margin-top:16px;background:rgba(0,212,170,.06);border:1px solid rgba(0,212,170,.2);border-radius:10px;padding:14px 16px">
+      <div style="font-size:10px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">✓ Pricing structure extracted</div>
+      <div style="font-size:11px;color:var(--text2);line-height:1.7;white-space:pre-wrap">${esc(st.pricingCalcAnalysis)}</div>
+      <button onclick="st.pricingCalcAnalysis='';st.pricingCalcFiles=[];_pricingFileObjects=[];render()" style="margin-top:10px;background:none;border:1px solid var(--border2);color:var(--muted);border-radius:6px;padding:4px 10px;font-size:10px;cursor:pointer">Clear & re-upload</button>
+    </div>`:'';
+
+  const canAnalyze=(files.length>0||st.pricingCalcUrl.trim().length>0)&&!st.pricingCalcLoading&&!st.pricingCalcAnalysis;
+
   return `<div class="card">
 <div class="ptitle">Price <em>Calculator</em></div>
-<div class="psub">Upload your pricing spreadsheet or rate card, or share a link to your pricing calculator — we'll reference this when designing the CPQ configuration.</div>
+<div class="psub">Upload your pricing spreadsheet or rate card, or share a link to your pricing calculator — we'll analyse the pricing structure and include it in the design document.</div>
 
 <label class="lbl">Upload Pricing File</label>
 <div class="shint" style="margin-bottom:8px">Excel, CSV, or PDF — rate cards, price books, discount schedules</div>
@@ -1177,10 +1186,16 @@ ${fileListHtml}
 <div class="shint" style="margin-bottom:8px">Google Sheets pricing model, pricing page, or rate card link</div>
 <input class="inp" placeholder="https://docs.google.com/spreadsheets/…" value="${esc(st.pricingCalcUrl)}" oninput="st.pricingCalcUrl=this.value;save()" style="max-width:520px">
 
-<div style="margin-top:16px;background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:12px 14px">
-  <div style="font-size:11px;font-weight:600;margin-bottom:4px">How this is used</div>
-  <div style="font-size:11px;color:var(--muted);line-height:1.7">The pricing file and link are referenced in the design document under Products & Pricing — helping the DealHub team understand your pricing structure, discount logic, and any calculator formulas that need to be replicated in the CPQ configuration.</div>
-</div>
+${st.pricingCalcError?`<div style="margin-top:8px;font-size:11px;color:#f87171">⚠️ ${esc(st.pricingCalcError)}</div>`:''}
+
+${!st.pricingCalcAnalysis?`<div style="margin-top:14px">
+  <button class="btn btn-p" onclick="analyzePricingCalc()" ${canAnalyze?'':'disabled'} style="margin-bottom:4px">
+    ${st.pricingCalcLoading?'<span style="display:flex;align-items:center;gap:7px"><span class="spin spin-dk" style="width:12px;height:12px;border-width:2px"></span>Analysing pricing…</span>':'🔍 Analyse Pricing'}
+  </button>
+  <div style="font-size:10px;color:var(--muted)">Upload a file or enter a URL above, then click to extract pricing structure</div>
+</div>`:''}
+
+${analysisHtml}
 </div>`;
 }
 
@@ -1209,6 +1224,64 @@ function removePricingFile(i){
   st.pricingCalcFiles.splice(i,1);
   _pricingFileObjects.splice(i,1);
   render();
+}
+
+async function analyzePricingCalc(){
+  if(st.pricingCalcLoading)return;
+  st.pricingCalcLoading=true;st.pricingCalcError='';render();
+
+  const sys=`You are a DealHub CPQ specialist analysing a client's pricing calculator, rate card, or pricing spreadsheet. Extract the following and return plain text (no JSON, no markdown):
+- Pricing model type (per-seat/user, tiered/volume, flat fee, usage-based, platform + user, or mixed)
+- Product lines or families found, with any price points
+- Discount tiers or volume bands (e.g. "1-10 seats: $X, 11-50: $Y")
+- Multi-year pricing if present (annual uplifts, multi-year discounts)
+- Payment terms mentioned (annual, monthly, net days)
+- Currency
+- Any special pricing rules, formulas, or conditions (e.g. minimum commits, overage rates, pilot pricing)
+- Any fields the sales rep must enter vs. auto-calculated fields
+Be specific — include actual numbers from the data. Keep output to 10-15 bullet points.`;
+
+  try{
+    const parts=[];
+
+    if(st.pricingCalcUrl.trim()){
+      parts.push({type:'text',text:`Pricing calculator / spreadsheet URL provided: ${st.pricingCalcUrl.trim()}\nNote this URL and reference it in the pricing analysis.`});
+    }
+
+    for(const file of _pricingFileObjects){
+      const ext=(file.name.split('.').pop()||'').toLowerCase();
+      if(ext==='pdf'){
+        const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});
+        parts.push({type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}});
+        parts.push({type:'text',text:`(above document: ${file.name})`});
+      } else if(['xlsx','xls'].includes(ext)){
+        const buf=await file.arrayBuffer();
+        const text=await extractFileText(file.name,buf);
+        if(text) parts.push({type:'text',text:`=== ${file.name} ===\n${text.slice(0,12000)}`});
+      } else {
+        const text=await file.text();
+        parts.push({type:'text',text:`=== ${file.name} ===\n${text.slice(0,12000)}`});
+      }
+    }
+
+    if(!parts.length){
+      st.pricingCalcAnalysis=`Pricing URL noted: ${st.pricingCalcUrl.trim()}\n\nNo files uploaded — pricing analysis will reference the URL only. Upload a spreadsheet or PDF for a full extraction.`;
+      st.pricingCalcLoading=false;save();render();return;
+    }
+
+    parts.push({type:'text',text:'Analyse the above pricing data and extract the pricing structure notes.'});
+
+    const res=await fetch(PX,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      model:'claude-haiku-4-5-20251001',max_tokens:1000,system:sys,
+      messages:[{role:'user',content:parts}]
+    })});
+    const d=await res.json();
+    if(d.error)throw new Error(d.error.message||JSON.stringify(d.error));
+    st.pricingCalcAnalysis=((d.content&&d.content[0]?d.content[0].text:'')||'No content extracted').trim();
+  }catch(e){
+    st.pricingCalcError='Could not analyse: '+e.message;
+  }
+  st.pricingCalcLoading=false;save();render();
 }
 
 async function analyzeOutputDocs(){
@@ -1720,11 +1793,11 @@ ${st.brandAnalysis?`
 BRAND & OUTPUT DOCUMENT NOTES (use to inform DealRoom styling recommendations and output document structure):
 ${st.brandAnalysis}`:''}
 ${st.brandUrl?`DealRoom / Marketing URL: ${st.brandUrl}`:''}
-${(st.pricingCalcFiles&&st.pricingCalcFiles.length)||st.pricingCalcUrl?`
+${(st.pricingCalcFiles&&st.pricingCalcFiles.length)||st.pricingCalcUrl||st.pricingCalcAnalysis?`
 PRICING CALCULATOR / RATE CARD:
-Files uploaded: ${st.pricingCalcFiles&&st.pricingCalcFiles.length?st.pricingCalcFiles.map(f=>f.name).join(', '):'None'}
+Files: ${st.pricingCalcFiles&&st.pricingCalcFiles.length?st.pricingCalcFiles.map(f=>f.name).join(', '):'None uploaded'}
 URL: ${st.pricingCalcUrl||'None'}
-(Reference these in the Products & Pricing section — note that a pricing calculator/rate card has been shared)`:''}`;
+${st.pricingCalcAnalysis?`PRICING STRUCTURE ANALYSIS (use this to enrich Products & Pricing section — reference exact figures and rules found):\n${st.pricingCalcAnalysis}`:'(Not yet analysed)'}`:''}`;
 
   const sys=`You are a senior DealHub Solution Architect and CPQ consultant. You write CPQ Business Process Discovery & Design Documents — professional, client-facing deliverables that capture discovery findings AND provide clear DealHub build direction in one document.
 
