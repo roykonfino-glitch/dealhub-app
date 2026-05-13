@@ -44,19 +44,21 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 .hdr-co input:focus{border-color:var(--primary);background:rgba(0,212,170,.04)}
 
 /* ── Step progress ── */
-.prog{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 28px;display:flex;overflow-x:auto;position:relative;z-index:10}
+.prog{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 16px;display:flex;overflow-x:auto;position:relative;z-index:10}
 .prog::-webkit-scrollbar{height:0}
-.ps{display:flex;align-items:center;gap:7px;padding:11px 14px 11px 0;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap;flex-shrink:0}
-.ps+.ps{padding-left:14px}
+.ps{display:flex;align-items:center;gap:5px;padding:9px 6px 9px 0;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap;flex-shrink:0}
+.ps+.ps{padding-left:6px}
 .ps.active{border-bottom-color:var(--primary)}
 .ps.active .pl{color:var(--primary)}
 .ps.done{border-bottom-color:rgba(0,212,170,.35)}
 .ps.done .pl{color:rgba(0,212,170,.7)}
-.pn{width:20px;height:20px;border-radius:50%;background:var(--card2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--muted);flex-shrink:0;transition:all .2s}
+.pn{width:18px;height:18px;border-radius:50%;background:var(--card2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:var(--muted);flex-shrink:0;transition:all .2s}
 .ps.active .pn{background:var(--primary);border-color:var(--primary);color:#0a1525;font-weight:800}
 .ps.done .pn{background:rgba(0,212,170,.2);border-color:rgba(0,212,170,.4);color:var(--primary)}
-.pl{font-size:11px;font-weight:600;color:var(--muted);transition:color .2s}
-.pa{color:var(--border2);font-size:10px;margin-left:8px}
+.pl{font-size:10px;font-weight:600;color:var(--muted);transition:color .2s}
+.pl-label{display:none}
+.ps.active .pl-label,.ps.done .pl-label{display:inline}
+.pa{color:var(--border2);font-size:9px;margin-left:2px}
 
 /* ── Layout ── */
 .page{display:grid;grid-template-columns:1fr;min-height:calc(100vh - 96px)}
@@ -622,7 +624,7 @@ function drawProg(){
   document.getElementById('prog').innerHTML=STEPS.map((s,i)=>{
     const cls=i===st.step?'active':i<st.step?'done':'';
     const csmTag=s.csmOnly?` <span style='font-size:9px;background:rgba(0,212,170,.15);color:var(--primary);border-radius:4px;padding:1px 5px;margin-left:4px;font-weight:700'>CSM</span>`:'';
-    return '<div class="ps '+cls+'" onclick="goStep('+i+')">'+'<span class="pn">'+(i<st.step?'\u2713':i+1)+'</span>'+'<span class="pl">'+s.e+' '+s.label+csmTag+'</span>'+(i<STEPS.length-1?'<span class="pa">›</span>':'')+'</div>';
+    return '<div class="ps '+cls+'" onclick="goStep('+i+')" title="'+s.label+'">'+'<span class="pn">'+(i<st.step?'\u2713':i+1)+'</span>'+'<span class="pl">'+s.e+'<span class="pl-label">&nbsp;'+s.label+csmTag+'</span></span>'+(i<STEPS.length-1?'<span class="pa">&#8250;</span>':'')+'</div>';
   }).join('');
 }
 function drawFooter(){
@@ -1968,8 +1970,38 @@ function downloadDoc(){
 
 function downloadDocPDF(){
   if(!st.lastDocHtml){alert('Generate the design document first.');return;}
-  const w=window.open('','_blank');
-  if(w){w.document.write(st.lastDocHtml);w.document.close();}
+  const btn=document.getElementById('pdfBtn');
+  const origHtml=btn?btn.innerHTML:'';
+  if(btn){btn.innerHTML='⏳ Building PDF…';btn.disabled=true;}
+
+  // Parse the full HTML doc to extract styles + body content
+  const parsed=new DOMParser().parseFromString(st.lastDocHtml,'text/html');
+  const css=Array.from(parsed.querySelectorAll('style')).map(s=>s.textContent).join('\n');
+
+  const styleEl=document.createElement('style');
+  styleEl.textContent=css;
+  document.head.appendChild(styleEl);
+
+  const container=document.createElement('div');
+  container.style.cssText='position:absolute;left:-9999px;top:0;width:794px;background:#fff;color:#1a2332';
+  container.innerHTML=parsed.body.innerHTML;
+  document.body.appendChild(container);
+
+  const co=(st.co||'Client').replace(/\s+/g,'_');
+  const filename=`DealHub_DiscoveryDoc_${co}_${new Date().toISOString().slice(0,10)}.pdf`;
+
+  const cleanup=()=>{
+    document.body.removeChild(container);
+    document.head.removeChild(styleEl);
+    if(btn){btn.innerHTML=origHtml;btn.disabled=false;}
+  };
+
+  html2pdf().set({
+    margin:0,filename,
+    image:{type:'jpeg',quality:0.98},
+    html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},
+    jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
+  }).from(container).save().then(cleanup).catch(err=>{cleanup();alert('PDF error: '+err.message);});
 }
 
 
