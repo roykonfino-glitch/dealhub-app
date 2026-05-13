@@ -1655,8 +1655,8 @@ SECTION INSTRUCTIONS:
   try{
     const call=b=>fetch(PX,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});
     const [res1,res2]=await Promise.all([
-      call({model:'claude-sonnet-4-6',max_tokens:6000,system:sys,messages:[{role:'user',content:`Generate sections 1, 2, 3, 4 of the Configuration Design Document. Follow all data integrity rules strictly — do not add any information not in the context.\n\nCONTEXT:\n${ctx}`}]}),
-      call({model:'claude-sonnet-4-6',max_tokens:6000,system:sys,messages:[{role:'user',content:`Generate sections 5, 6, 7, 8 of the Configuration Design Document. Follow all data integrity rules strictly — include every product from the SKU SAMPLE exactly as listed, do not invent any values.\n\nCONTEXT:\n${ctx}`}]})
+      call({model:'claude-haiku-4-5-20251001',max_tokens:4000,system:sys,messages:[{role:'user',content:`Generate sections 1, 2, 3, 4 of the Configuration Design Document. Follow all data integrity rules strictly — do not add any information not in the context.\n\nCONTEXT:\n${ctx}`}]}),
+      call({model:'claude-haiku-4-5-20251001',max_tokens:4000,system:sys,messages:[{role:'user',content:`Generate sections 5, 6, 7, 8 of the Configuration Design Document. Follow all data integrity rules strictly — include every product from the SKU SAMPLE exactly as listed, do not invent any values.\n\nCONTEXT:\n${ctx}`}]})
     ]);
     const [text1,text2]=await Promise.all([res1.text(),res2.text()]);
     if(!res1.ok){st.docError=`HTTP ${res1.status}: ${text1.slice(0,200)}`;st.docGenerating=false;render();return;}
