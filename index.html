@@ -1684,7 +1684,18 @@ HTML FORMAT — CRITICAL: output raw HTML only. Do NOT wrap in markdown code fen
 
 STAKEHOLDERS TABLE (output before section 1, no section wrapper):
 <h2>[Client Name] Stakeholders</h2> + 2-col table Stakeholder | Role & Scope.
-Rows: (1) admin name from context → "DealHub Admin / Primary Contact — [email]"; (2) CSM name → "DealHub Solution Architect / Engagement Lead"; (3) any other named people in context. If admin unknown: [ACTION REQUIRED] | "DealHub Admin not yet identified — required before build begins".
+Rows: (1) admin name from context → "DealHub Admin / Primary Contact — [email]"; (2) CSM name → "DealHub Solution Architect / Engagement Lead"; (3) any other named people in context. If admin unknown: write ACTION REQUIRED in the name cell (not the literal text "[ACTION REQUIRED]") | "DealHub Admin not yet identified — required before build begins". NEVER write literal bracket placeholders like [blank] or [Blank] in output visible to the reader — leave cells empty instead.
+
+CRITICAL — SECTION NAMES ARE FIXED. You must use EXACTLY these 8 section titles, no substitutions:
+1. "Context & The Why"
+2. "Goals & Success Criteria"
+3. "Go-To-Market Structure"
+4. "Current State: How It Works Today"
+5. "Products & Pricing"
+6. "DealHub Configuration Design"
+7. "Approval Workflows"
+8. "Output Documents, DealRoom & Build Sequence"
+Do NOT use Executive Summary, Configuration Plan, Integrations, UAT Checklist, or any other title not listed above.
 
 SECTION INSTRUCTIONS:
 1. Context & The Why — Three paragraphs: (a) Who the company is: what they do, industry, customer segments — use ONLY what is in the context, never invent company facts; (b) Current quoting infrastructure: CRM used, how reps create quotes today (from sellingFlow, currentQuote, crm, sfObject — use exact values); (c) Why they are engaging DealHub: pain points and limitations driving the project (from addCtx, transcript observations, sellingFlow). If transcript quotes exist, include one <div class="quote"> with verbatim text and speaker.
@@ -1731,10 +1742,10 @@ SECTION INSTRUCTIONS:
   try{
     // Sequential calls to stay inside the 4,000 output tokens/min rate limit
     st.docStatus='Generating sections 1–4…';render();
-    const text1=await docCall({model:DOC_MODEL,max_tokens:4000,system:sys,messages:[{role:'user',content:`Generate the Stakeholders table followed by sections 1, 2, 3, 4 of the CPQ Business Process Discovery & Design Document. Follow all data integrity rules strictly — use only information from the context, do not invent anything.\n\nCONTEXT:\n${ctx}`}]},'Part 1');
+    const text1=await docCall({model:DOC_MODEL,max_tokens:4000,system:sys,messages:[{role:'user',content:`Generate the Stakeholders table followed by these 4 sections of the CPQ Business Process Discovery & Design Document:\n1. "Context & The Why"\n2. "Goals & Success Criteria"\n3. "Go-To-Market Structure"\n4. "Current State: How It Works Today"\n\nUse the exact section titles above. Do NOT use Executive Summary or any other title. Follow all data integrity rules — only information from the context.\n\nCONTEXT:\n${ctx}`}]},'Part 1');
 
     st.docStatus='Generating sections 5–8…';render();
-    const text2=await docCall({model:DOC_MODEL,max_tokens:4000,system:sys,messages:[{role:'user',content:`Generate sections 5, 6, 7, 8 of the CPQ Business Process Discovery & Design Document. Follow all data integrity rules strictly — include EVERY product from the SKU SAMPLE exactly as listed. For section 6, use the EXACT product family names from the SKU data as question group IDs. Do not invent any values.\n\nCONTEXT:\n${ctx}`}]},'Part 2');
+    const text2=await docCall({model:DOC_MODEL,max_tokens:4000,system:sys,messages:[{role:'user',content:`Generate these 4 sections of the CPQ Business Process Discovery & Design Document:\n5. "Products & Pricing"\n6. "DealHub Configuration Design"\n7. "Approval Workflows"\n8. "Output Documents, DealRoom & Build Sequence"\n\nUse the exact section titles above. Include EVERY product from the SKU SAMPLE exactly as listed. For section 6 question groups, use EXACT product family names from the SKU data. Do not invent any values.\n\nCONTEXT:\n${ctx}`}]},'Part 2');
 
     let d1,d2;
     try{d1=JSON.parse(text1);}catch(pe){st.docError=`Bad JSON (part 1): ${text1.slice(0,150)}`;st.docGenerating=false;render();return;}
