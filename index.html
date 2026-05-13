@@ -442,7 +442,6 @@ const STEPS=[
   {id:'products',   label:'Your Products',      e:'📦'},
   {id:'selling',    label:'How You Sell',        e:'💡'},
   {id:'transcript', label:'Client Transcript',  e:'🎙️', csmOnly:true},
-  {id:'decisions',  label:'Decision Tree',       e:'🌿'},
   {id:'rules',      label:'Approvals & Terms',  e:'📋'},
   {id:'output',     label:'Output Documents',   e:'📄'},
   {id:'review',     label:'Review & Generate',  e:'🚀'},
@@ -582,8 +581,7 @@ function scoreCompletion(){
   if(ucDetails.length===enUC.length&&enUC.length>0){score+=10;max+=10;}
   else if(enUC.length>0){max+=10;gaps.push('Use case details (some too short)');}
   check(st.sellingFlow,'Quoting flow description',10);
-  if(st.decisionNodes&&st.decisionNodes.length>1){score+=10;max+=10;}else{max+=10;gaps.push('Decision tree nodes');}
-  if(st.approvalRows.length>0){score+=10;max+=10;}else{max+=10;gaps.push('Approval rules');}
+if(st.approvalRows.length>0){score+=10;max+=10;}else{max+=10;gaps.push('Approval rules');}
   check(st.payTerms,'Payment terms',5);
   check(st.netDays,'Net days',5);
   const pct=Math.round(score/max*100);
@@ -595,7 +593,7 @@ function render(){
   try{ drawProg(); }catch(e){ console.error('drawProg error:',e); }
   if(st.submitted){try{renderDone();drawFooter();}catch(e){console.error('done error:',e);}return;}
   try{
-    const fns=[S1,S2,S3,S_RDS,S4_Decisions,S5,S_OutputDocs,S6,S7_Plan];
+    const fns=[S1,S2,S3,S_RDS,S5,S_OutputDocs,S6,S7_Plan];
     const stepFn=fns[st.step]||S1;
     const stepHtml=stepFn();
     const el=document.getElementById('content');
@@ -609,10 +607,10 @@ function render(){
   try{ drawTips(); }catch(e){ console.error('tips:',e); }
   try{ save(); }catch(e){ console.error('save error:',e); }
   // Auto-trigger generation on first arrival at Review (step 6) and Plan (step 7)
-  if(st.step===7&&!st.submitted&&!st.docGenerating&&!st.lastDocHtml&&!st.autoGenDocTriggered){
+  if(st.step===6&&!st.submitted&&!st.docGenerating&&!st.lastDocHtml&&!st.autoGenDocTriggered){
     st.autoGenDocTriggered=true;setTimeout(genDoc,800);
   }
-  if(st.step===8&&!st.submitted&&!st.planLoading&&!(st.projectPlan&&st.projectPlan.length)&&!st.autoGenPlanTriggered){
+  if(st.step===7&&!st.submitted&&!st.planLoading&&!(st.projectPlan&&st.projectPlan.length)&&!st.autoGenPlanTriggered){
     st.autoGenPlanTriggered=true;setTimeout(genProjectPlan,800);
   }
 }
@@ -1310,7 +1308,7 @@ ${en.length?`<div style="margin-bottom:20px">
   <div style="background:linear-gradient(135deg,rgba(0,212,170,.1),rgba(0,212,170,.06));border:1px solid rgba(0,212,170,.25);border-radius:12px;padding:18px;box-shadow:0 1px 8px rgba(99,102,241,.1)">
     <div style="font-size:20px;margin-bottom:8px">📋</div>
     <div style="font-size:14px;font-weight:700;margin-bottom:4px">Configuration Design Document</div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.5">Full DealHub spec — question groups, approval matrices, playbook structure, field mapping, build sequence, and UAT checklist. Includes the configuration mind map on page 3.</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.5">Full DealHub spec — question groups, approval matrices, playbook structure, field mapping, build sequence, and UAT checklist.</div>
     <button class="btn btn-p" onclick="genDoc()" ${st.docGenerating?'disabled':''} style="width:100%;justify-content:center;font-size:12px">
       ${st.docGenerating?'<span style="display:flex;align-items:center;gap:7px"><span class="spin spin-dk" style="width:13px;height:13px;border-width:2.5px"></span>Generating — about 20 seconds…</span>':'🤖 Generate Design Document'}
     </button>
@@ -1321,15 +1319,6 @@ ${en.length?`<div style="margin-bottom:20px">
     ${st.docError?`<div style="margin-top:8px;font-size:10px;color:#f87171">⚠️ ${esc(st.docError)}</div>`:''}
   </div>
 
-  <div style="background:var(--card2);border:1px solid var(--border2);border-radius:12px;padding:18px">
-    <div style="font-size:20px;margin-bottom:8px">🗺️</div>
-    <div style="font-size:14px;font-weight:700;margin-bottom:4px">Standalone Mind Map</div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.5">Top-down hierarchy tree — Company → Business streams → Product lines → Sub-items. Also included in the design document above.</div>
-    <button class="btn" onclick="genMM()" ${st.mmGenerating?'disabled':''} style="width:100%;justify-content:center;font-size:12px;border-color:var(--muted);color:var(--muted)" onmouseover="this.style.borderColor='var(--primary)';this.style.color='var(--primary)'" onmouseout="this.style.borderColor='var(--muted)';this.style.color='var(--muted)'">
-      ${st.mmGenerating?'<span style="display:flex;align-items:center;gap:7px"><span class="spin" style="width:12px;height:12px;border-width:2px"></span>Building…</span>':'Build Mind Map'}
-    </button>
-    ${st.mmError?`<div style="margin-top:8px;font-size:10px;color:#f87171">⚠️ ${esc(st.mmError)}</div>`:''}
-  </div>
 </div>
 
 <div style="background:var(--primary-dim);border:1px solid rgba(0,212,170,.2);border-radius:8px;padding:13px 15px;margin-top:14px;display:flex;align-items:flex-start;gap:10px">
@@ -1817,318 +1806,6 @@ function applyTranscript(){
   save();render();
 }
 
-// ── S4 — DECISION TREE ══════════════════════════════════════════════════════
-function S4_Decisions(){
-  const dtChart=st.decisionNodes&&st.decisionNodes.length>0?renderDTChart(st.decisionNodes):'';
-  const dtFile=st.dtFile||'';
-
-  return `<div class="card">
-<div class="ptitle">Decision Tree — <em>Guided Selling Logic</em></div>
-<div class="psub">Describe how a rep builds a quote from start to finish — what they decide first, what branches off that, what's automatic. AI converts this into a visual flowchart and includes it in the design document.</div>
-
-<div style="margin-bottom:14px">
-  <label class="lbl">Describe your quoting flow</label>
-  <div style="font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.5">Walk through a typical deal from first click to signed quote. Include decision points, product selections, approvals, and anything that happens automatically.</div>
-  <textarea class="ta" rows="7" id="dtFlowText" placeholder="e.g. The rep opens a New Business opportunity in Salesforce. They select the product family first — either Platform or Add-Ons. If Platform, they enter the number of seats (minimum 10). If the deal is multi-year, a CPI uplift % field appears for each year after the first. For partner deals, the partner discount tier loads automatically from the CRM account record. Once the quote is built, if total discount exceeds 15% it routes to the manager for approval. The order form is sent via DocuSign when approved." oninput="st.dtFlowText=this.value;save()">${esc(st.dtFlowText||'')}</textarea>
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;flex-wrap:wrap;gap:8px">
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <button class="btn btn-ai" onclick="aiFlowToNodes()" ${st.dtAiLoading?'disabled':''} style="font-size:12px">
-        ${st.dtAiLoading?'<span style="display:flex;align-items:center;gap:7px"><span class="spin spin-dk" style="width:13px;height:13px;border-width:2.5px"></span>Building flowchart…</span>':'🤖 Generate decision tree'}
-      </button>
-      ${st.decisionNodes&&st.decisionNodes.length>0?`<button class="btn btn-sm" onclick="st.decisionNodes=[];st.dtFile='';save();render()" style="color:#e53e3e;border-color:#fbd5d5">🗑 Clear</button>`:''}
-    </div>
-    ${st.dtAiError?`<span style="font-size:11px;color:#e53e3e">⚠️ ${esc(st.dtAiError)}</span>`:''}
-  </div>
-</div>
-
-<div style="margin-bottom:16px">
-  <label class="lbl">Or upload an existing diagram <span style="color:var(--muted);font-weight:400">(optional)</span></label>
-  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-    <label class="btn btn-sm" style="cursor:pointer">
-      📎 Upload file (PDF, image, Visio…)
-      <input type="file" accept=".pdf,.png,.jpg,.jpeg,.svg,.vsdx,.xml" style="display:none" onchange="handleDTFile(this)">
-    </label>
-    ${dtFile?`<span style="font-size:11px;color:var(--primary);font-weight:600">✓ ${esc(dtFile)}</span>`:''}
-    <input class="inp" placeholder="Or paste a link — Lucidchart, Miro, Figma URL…" value="${esc(st.diagramUrl||'')}" oninput="st.diagramUrl=this.value;save()" style="flex:1;font-size:12px;min-width:200px">
-  </div>
-</div>
-
-${st.decisionNodes&&st.decisionNodes.length>0?`
-<div>
-  <div class="slbl">Generated flowchart — ${st.decisionNodes.length} nodes</div>
-  <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;overflow:hidden">
-    ${dtChart}
-  </div>
-</div>`:''}
-</div>`;
-}
-
-function handleDTFile(inp){
-  const f=inp.files[0];if(!f)return;
-  st.dtFile=f.name;save();render();
-  inp.value='';
-}
-
-async function aiFlowToNodes(){
-  const text=(document.getElementById('dtFlowText')?.value||st.dtFlowText||'').trim();
-  if(!text){alert('Describe your quoting flow first — even a few sentences is enough.');return;}
-  st.dtFlowText=text;
-  st.dtAiLoading=true;st.dtAiError='';save();render();
-  const sys=`You are a DealHub Solution Architect. Convert a plain-English quoting flow into a decision tree.
-Return ONLY a valid JSON array, no markdown.
-Each node: {"type":"entry"|"decision"|"yes"|"no"|"output","label":"max 28 chars","value":"If/Then logic using arrows, 1-3 lines"}
-RULES: entry = first CRM trigger (one only, always first). decision = branching question, ALWAYS followed immediately by yes then no node. yes/no = branch outcomes. output = final quote action (one only, last). Every decision needs both yes and no. Produce 6-16 nodes. Labels max 28 chars. Values use -> arrows.`;
-  const ctx=`Company: ${st.co||'?'} | CRM: ${st.crm} | Products: ${st.productFamilies||'?'} | Contract: ${st.contractLength||'12'}mo | Use cases: ${st.useCases.filter(u=>u.on).map(u=>u.n).join(', ')||'none'}\nFlow: "${text}"`;
-  try{
-    const res=await fetch(PX,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1000,system:sys,messages:[{role:'user',content:ctx}]})});
-    const d=await res.json();
-    if(d.error){st.dtAiError=d.error.message;st.dtAiLoading=false;render();return;}
-    const parsed=JSON.parse(((d.content&&d.content[0]?d.content[0].text:'')||'[]').replace(/```json|```/g,'').trim());
-    if(!Array.isArray(parsed)||!parsed.length){st.dtAiError='Could not parse — try rephrasing your flow.';st.dtAiLoading=false;render();return;}
-    st.decisionNodes=parsed.map(n=>({id:uid(),type:n.type||'decision',label:n.label||'',value:n.value||'',children:[]}));
-    st.dtAiLoading=false;save();render();
-  }catch(e){st.dtAiError='Could not reach AI.';st.dtAiLoading=false;render();}
-}
-
-function renderDTChart(nodes){
-  if(!nodes||nodes.length===0)return'';
-  const W=680,BW=170,BH=40,GAP_Y=54,PAD_X=20,CX=W/2;
-  const rows=[];
-  let i=0;
-  while(i<nodes.length){
-    const n=nodes[i];
-    if(n.type==='decision'){
-      const yes=nodes[i+1]&&nodes[i+1].type==='yes'?nodes[i+1]:null;
-      const noNode=yes?(nodes[i+2]&&nodes[i+2].type==='no'?nodes[i+2]:null):(nodes[i+1]&&nodes[i+1].type==='no'?nodes[i+1]:null);
-      if(yes||noNode){rows.push({type:'decision',node:n});rows.push({type:'branches',yes,no:noNode});i+=1+(yes?1:0)+(noNode?1:0);continue;}
-    }
-    rows.push({type:'single',node:n});i++;
-  }
-  const totalH=PAD_X+rows.length*(BH+GAP_Y)+40;
-  const typeCol={'entry':'#1a2c42','decision':'#1a2c42','yes':'#0a2818','no':'#2a0f0f','output':'#1a3d2e'};
-  const typeBdr={'entry':'#0d1b2e','decision':'#1f3550','yes':'var(--primary)','no':'#f87171','output':'#00d4aa'};
-  const typeTag={'entry':'ENTRY','decision':'DECISION','yes':'YES','no':'NO','output':'OUTPUT'};
-  const tagCol={'entry':'#93c5fd','decision':'#94a3b8','yes':'#6ee7b7','no':'#fca5a5','output':'#6ee7b7'};
-
-  function box(x,y,w,h,type,label){
-    const lbl=(label||'').slice(0,24).replace(/&/g,'&amp;').replace(/</g,'&lt;');
-    const col=typeCol[type]||'#1e293b',bdr=typeBdr[type]||'#475569';
-    const tg=typeTag[type]||'NODE',tc=tagCol[type]||'#94a3b8';
-    return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="7" fill="${col}" stroke="${bdr}" stroke-width="1.5"/>
-<text x="${x+8}" y="${y+11}" font-size="7" font-weight="800" fill="${tc}" font-family="system-ui,sans-serif" opacity="0.9">${tg}</text>
-<text x="${x+w/2}" y="${y+h/2+5}" text-anchor="middle" font-size="12" font-weight="600" fill="#fff" font-family="system-ui,sans-serif">${lbl||'…'}</text>`;
-  }
-  function arrow(x1,y1,x2,y2,col='#00b899'){
-    const my=(y1+y2)/2;
-    return `<path d="M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2}" fill="none" stroke="${col}" stroke-width="1.5" stroke-opacity="0.7"/>
-<polygon points="${x2},${y2} ${x2-4},${y2-7} ${x2+4},${y2-7}" fill="${col}" fill-opacity="0.7"/>`;
-  }
-
-  let svg=`<svg width="${W}" height="${totalH}" viewBox="0 0 ${W} ${totalH}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block"><rect width="${W}" height="${totalH}" fill="#0a1525"/>`;
-  let prevCX=CX,prevBotY=PAD_X;
-
-  rows.forEach((row,ri)=>{
-    const topY=PAD_X+ri*(BH+GAP_Y);
-    if(row.type==='single'||row.type==='decision'){
-      svg+=box(CX-BW/2,topY,BW,BH,row.node.type,row.node.label);
-      if(ri>0)svg+=arrow(prevCX,prevBotY,CX,topY);
-      prevCX=CX;prevBotY=topY+BH;
-    } else if(row.type==='branches'){
-      const {yes,no}=row;
-      const brW=BW*0.85,yesX=PAD_X+24,noX=W-PAD_X-24-brW;
-      const yesCX=yesX+brW/2,noCX=noX+brW/2;
-      if(yes){
-        svg+=box(yesX,topY,brW,BH,'yes',yes.label);
-        svg+=arrow(prevCX,prevBotY,yesCX,topY,'var(--primary)');
-        const lx=(prevCX+yesCX)/2,ly=(prevBotY+topY)/2-4;
-        svg+=`<text x="${lx-10}" y="${ly}" font-size="9" font-weight="800" fill="var(--primary)" font-family="system-ui,sans-serif">YES</text>`;
-      }
-      if(no){
-        svg+=box(noX,topY,brW,BH,'no',no.label);
-        svg+=arrow(prevCX,prevBotY,noCX,topY,'#dc2626');
-        const lx=(prevCX+noCX)/2+4,ly=(prevBotY+topY)/2-4;
-        svg+=`<text x="${lx}" y="${ly}" font-size="9" font-weight="800" fill="#dc2626" font-family="system-ui,sans-serif">NO</text>`;
-      }
-      if(yes&&no){
-        const mergY=topY+BH+GAP_Y*0.35;
-        svg+=`<line x1="${yesCX}" y1="${topY+BH}" x2="${CX}" y2="${mergY}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4,3" opacity="0.5"/>`;
-        svg+=`<line x1="${noCX}" y1="${topY+BH}" x2="${CX}" y2="${mergY}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4,3" opacity="0.5"/>`;
-      }
-      prevCX=CX;prevBotY=topY+BH;
-    }
-  });
-  return svg+`</svg>`;
-}
-
-
-// ── APPROVAL FILE UPLOAD ─────────────────────────────────────────────────────
-function handleApprovalFile(inp){
-  const f=inp.files[0];if(!f)return;
-  st.approvalFile=f.name;
-  save();render();
-  inp.value='';
-}
-
-
-// ── OPEN DESIGN DOC ─────────────────────────────────────────────────────────
-function buildDocPage(html, autoPrint=false){
-  const co=st.co||'Client',dt=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
-  const mmSvg=buildTreeSVG();
-  const printScript=autoPrint?'<script>window.addEventListener(\'load\',function(){setTimeout(function(){window.print();},800);});<\/script>':'';
-  return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>DealHub Design Document \u2014 '+co+'</title>'+printScript+'<style>'
-    +'@import url(\'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap\');'
-    +'*{box-sizing:border-box;margin:0;padding:0}'
-    +'body{font-family:\'Inter\',system-ui,sans-serif;background:#fff;color:#1a2332;font-size:13px;line-height:1.75}'
-    +'.cover{background:linear-gradient(160deg,#0a1628 0%,#0f2a1e 60%,#0a1628 100%);color:#fff;padding:72px;min-height:320px;display:flex;flex-direction:column;justify-content:space-between;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
-    +'.cover-logo-mark{width:32px;height:32px;background:#00d4aa;border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;color:#0a1628}'
-    +'.cover-client{font-size:36px;font-weight:800;color:#fff;line-height:1.1;margin:32px 0 10px}'
-    +'.cover-sub{font-size:14px;color:rgba(255,255,255,.5)}'
-    +'.cover-meta{display:flex;margin-top:40px;border-top:1px solid rgba(255,255,255,.1);padding-top:24px;gap:40px}'
-    +'.meta-item .label{font-size:9px;font-weight:700;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}'
-    +'.meta-item .value{font-size:13px;font-weight:600;color:#fff}'
-    +'.body{padding:48px 72px;max-width:1000px;margin:0 auto}'
-    +'.section{padding-top:40px;border-top:2px solid #f3f4f6;margin-top:40px}'
-    +'.section:first-child{border-top:none;margin-top:0}'
-    +'.sec-num{display:inline-block;background:#0a1628;color:#00d4aa;border-radius:5px;padding:2px 8px;font-size:10px;font-weight:800;margin-bottom:8px;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
-    +'h1{font-size:20px;font-weight:800;color:#0a1628;margin-bottom:5px}'
-    +'h2{font-size:14px;font-weight:700;color:#0a1628;margin:24px 0 8px;padding-left:10px;border-left:3px solid #00d4aa}'
-    +'p{margin-bottom:12px;color:#374151;line-height:1.75;font-size:13px}'
-    +'ul,ol{padding-left:20px;margin-bottom:14px}li{margin-bottom:5px;color:#374151;font-size:13px}'
-    +'table{width:100%;border-collapse:collapse;margin-bottom:20px;font-size:12px}'
-    +'thead tr{background:#0a1628;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
-    +'th{padding:9px 12px;text-align:left;font-weight:700;font-size:10px;color:#00d4aa;text-transform:uppercase;letter-spacing:0.6px}'
-    +'td{padding:9px 12px;border-bottom:1px solid #f3f4f6;vertical-align:top;color:#374151}'
-    +'tbody tr:nth-child(even){background:#f9fafb}'
-    +'strong{color:#0a1628;font-weight:700}hr{border:none;border-top:1px solid #e5e7eb;margin:24px 0}'
-    +'.mm-wrap{border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;margin:16px 0}'
-    +'.footer-bar{background:#0a1628;color:rgba(255,255,255,.35);font-size:10px;padding:12px 72px;display:flex;align-items:center;justify-content:space-between;-webkit-print-color-adjust:exact;print-color-adjust:exact;margin-top:48px}'
-    +'.body{page-break-inside:auto}.section{page-break-before:auto;page-break-inside:avoid}'
-    +'@media print{@page{size:A4;margin:0}.cover{page-break-after:always;min-height:100vh}.section{page-break-inside:avoid}table{page-break-inside:avoid}}'
-    +'</style></head><body>'
-    +'<div class="cover">'
-    +'<div style="display:flex;align-items:center;gap:8px"><div class="cover-logo-mark">d</div><span style="font-size:14px;font-weight:700;color:rgba(255,255,255,.6)">dealhub ai</span></div>'
-    +'<div><div style="font-size:11px;font-weight:600;color:#00d4aa;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px">CPQ Configuration Design Document</div>'
-    +'<div class="cover-client">'+co+'</div>'
-    +'<div class="cover-sub">Prepared by '+(st.csm||'DealHub Professional Services')+' \u00b7 '+st.crm+'</div></div>'
-    +'<div class="cover-meta">'
-    +'<div class="meta-item"><div class="label">Date</div><div class="value">'+dt+'</div></div>'
-    +'<div class="meta-item"><div class="label">Industry</div><div class="value">'+(st.industry||'TBD')+'</div></div>'
-    +'<div class="meta-item"><div class="label">Go-Live</div><div class="value">'+(st.goLive||'TBD')+'</div></div>'
-    +'<div class="meta-item"><div class="label">Version</div><div class="value">1.0</div></div>'
-    +'</div></div>'
-    +'<div class="body">'
-    +(mmSvg?'<div class="section"><div class="sec-num">OVERVIEW</div><h1>Configuration Scope</h1><div class="mm-wrap">'+mmSvg+'</div></div>':'')
-    +html
-    +'</div>'
-    +'<div class="footer-bar"><span>DealHub CPQ \u00b7 Configuration Design Document</span><span>'+co+' \u00b7 '+dt+'</span><span>Confidential</span></div>'
-    +'</body></html>';
-}
-
-function openDoc(html){
-  const pg=buildDocPage(html, false);
-  const w=window.open('','_blank');
-  if(w){w.document.write(pg);w.document.close();}
-  else downloadDoc();
-}
-
-
-
-async function genMM(){
-  st.mmGenerating=true;st.mmError='';render();
-  try{
-    const mmHtml=buildTreeSVG();
-    st.mmGenerating=false;render();
-    const co=st.co||'DealHub Client',dt=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
-    const pg=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>DealHub Mind Map — ${co}</title>
-<style>*{box-sizing:border-box;margin:0;padding:0}body{background:var(--bg);font-family:system-ui,sans-serif}
-.bar{background:#0a1628;padding:14px 28px;display:flex;align-items:center;justify-content:space-between;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.bt{font-size:14px;font-weight:700;color:#3de8b0}.bs{font-size:11px;color:rgba(255,255,255,.4);margin-top:2px}
-.wrap{padding:32px;max-width:1100px;margin:0 auto}
-.mm-card{border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background:var(--card);box-shadow:0 1px 4px rgba(0,0,0,.06)}
-.legend{display:flex;flex-wrap:wrap;gap:16px;padding:16px 24px;border-top:1px solid #f3f4f6;background:#fafafa}
-.li{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--muted)}
-.li-dot{width:10px;height:10px;border-radius:3px}
-@media print{.np{display:none!important}}
-</style></head><body>
-<div class="bar np"><div><div class="bt">DealHub Mind Map — ${co}</div><div class="bs">${dt}</div></div>
-<button onclick="window.print()" style="background:#3de8b0;color:#0a1628;border:none;border-radius:7px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer">🖨️ Save PDF</button></div>
-<div class="wrap"><div class="mm-card">${mmHtml}
-<div class="legend">
-  <div class="li"><div class="li-dot" style="background:#2563eb"></div>Company</div>
-  <div class="li"><div class="li-dot" style="background:#1d2d6b"></div>Business Stream</div>
-  <div class="li"><div class="li-dot" style="background:#3b82f6"></div>Product / Feature</div>
-  <div class="li"><div class="li-dot" style="background:#93c5fd;border-radius:50%"></div>Sub-item</div>
-</div></div></div></body></html>`;
-    const w=window.open('','_blank');
-    if(w){w.document.write(pg);w.document.close();}
-    else{const b=new Blob([pg],{type:'text/html'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`DealHub_MindMap_${co.replace(/\s+/g,'_')}.html`;a.click();}
-  }catch(e){st.mmError='Could not generate.';st.mmGenerating=false;render();}
-}
-
-function buildTreeSVG(){
-  const co=st.co||'Company';
-  const en=st.useCases.filter(u=>u.on).map(u=>u.n);
-  const families=st.productFamilies?st.productFamilies.split(/[,;]/).map(f=>f.trim()).filter(Boolean).slice(0,5)
-    :[...new Set(st.skus.map(s=>{const v=Object.values(s).filter(v=>v&&v!=='id');return v[2]||v[1]||'';}).filter(Boolean))].slice(0,4);
-  const tree={label:co,children:[
-    {label:'New Business',color:'#1d2d6b',children:[
-      ...(families.length?families.map(f=>({label:f.slice(0,18),color:'#2563eb',children:[]})):[{label:'Products',color:'#2563eb',children:[]}]),
-      ...en.filter(u=>['Multi-Year Contracts','Ramp-Up Pricing','Trials & Pilots'].includes(u)).slice(0,2).map(u=>({label:u.replace(' Contracts','').replace(' Pricing',''),color:'#3b82f6',children:[]})),
-    ]},
-    {label:'Existing Business',color:'#1d2d6b',children:[
-      {label:'Renewals',color:'#374151',children:[]},{label:'Expansions',color:'#374151',children:[]},{label:'Amendments',color:'#374151',children:[]},
-    ]},
-    {label:'Approvals',color:'#1d2d6b',children:[
-      {label:st.approvalRows.length?`${st.approvalRows.length} Tiers`:'Discount Matrix',color:'#374151',children:[]},
-      {label:st.ruleRows.length?`${st.ruleRows.length} Rules`:'Rule Workflows',color:'#374151',children:[]},
-    ]},
-    {label:'Configuration',color:'#1d2d6b',children:[
-      {label:'Question Groups',color:'#374151',children:[]},{label:'Billing & Terms',color:'#374151',children:[]},
-      ...(st.multiCurrency?[{label:'Multi-Currency',color:'#374151',children:[]}]:[]),
-    ]},
-  ]};
-  return renderTreeSVG(tree);
-}
-
-function renderTreeSVG(tree){
-  const W=1100,PH=38,CH=32,HGAP=28,rootH=46;
-  const co=tree.label;
-  const rootW=Math.max(180,co.length*11+40);
-  function nodeWidth(n){
-    if(!n.children||!n.children.length)return Math.max(100,n.label.length*8+24);
-    const tw=n.children.reduce((s,c)=>s+nodeWidth(c),0)+(n.children.length-1)*HGAP;
-    return Math.max(Math.max(130,n.label.length*9+28),tw);
-  }
-  function assignX(node,startX){
-    if(!node.children||!node.children.length){node.w=nodeWidth(node);node.cx=startX+node.w/2;return node.w;}
-    let x=startX,tw=0;
-    node.children.forEach(c=>{const cw=assignX(c,x);x+=cw+HGAP;tw+=cw+HGAP;});
-    tw-=HGAP;node.w=Math.max(nodeWidth(node),tw);
-    node.cx=(node.children[0].cx+node.children[node.children.length-1].cx)/2;
-    return node.w;
-  }
-  const dY=[60,60+rootH+50,60+rootH+50+PH+55,60+rootH+50+PH+55+CH+45];
-  function assignY(node,d){node.cy=dY[Math.min(d,dY.length-1)];if(node.children)node.children.forEach(c=>assignY(c,d+1));}
-  assignX(tree,80);tree.cx=W/2;assignY(tree,0);
-  let nodes=[],conns=[];
-  function collect(node,parent,d){
-    nodes.push({...node,depth:d});
-    if(parent)conns.push({x1:parent.cx,y1:parent.cy+(d===1?rootH:PH)/2,x2:node.cx,y2:node.cy-CH/2,d});
-    if(node.children)node.children.forEach(c=>collect(c,node,d+1));
-  }
-  collect(tree,null,0);
-  const maxY=Math.max(...nodes.map(n=>n.cy))+50;
-  let svg=`<svg width="${W}" height="${maxY+40}" viewBox="0 0 ${W} ${maxY+40}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block"><rect width="${W}" height="${maxY+40}" fill="#0a1525"/>`;
-  conns.forEach(c=>{const my=(c.y1+c.y2)/2;svg+=`<path d="M${c.x1},${c.y1} C${c.x1},${my} ${c.x2},${my} ${c.x2},${c.y2}" fill="none" stroke="${c.d===1?'#1d4ed8':'#93c5fd'}" stroke-width="${c.d===1?2:1.5}" stroke-opacity="${c.d===1?0.8:0.6}"/>`;});
-  nodes.forEach(n=>{
-    const lbl=(n.label||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
-    if(n.depth===0){svg+=`<rect x="${n.cx-rootW/2}" y="${n.cy-rootH/2}" width="${rootW}" height="${rootH}" rx="10" fill="#2563eb"/><text x="${n.cx}" y="${n.cy+5}" text-anchor="middle" font-size="16" font-weight="800" fill="#fff" font-family="system-ui,sans-serif">${lbl.slice(0,22)}</text>`;}
-    else if(n.depth===1){const nw=Math.max(130,n.label.length*9+28);svg+=`<rect x="${n.cx-nw/2}" y="${n.cy-PH/2}" width="${nw}" height="${PH}" rx="7" fill="#1d2d6b"/><text x="${n.cx}" y="${n.cy+5}" text-anchor="middle" font-size="12" font-weight="700" fill="#fff" font-family="system-ui,sans-serif">${lbl.slice(0,20)}</text>`;}
-    else if(n.depth===2){const nw=Math.max(90,n.label.length*8+20);svg+=`<rect x="${n.cx-nw/2}" y="${n.cy-CH/2}" width="${nw}" height="${CH}" rx="5" fill="${n.color||'#2563eb'}"/><text x="${n.cx}" y="${n.cy+4}" text-anchor="middle" font-size="11" font-weight="600" fill="#fff" font-family="system-ui,sans-serif">${lbl.slice(0,18)}</text>`;}
-    else{svg+=`<circle cx="${n.cx}" cy="${n.cy}" r="3" fill="#93c5fd"/><text x="${n.cx}" y="${n.cy+14}" text-anchor="middle" font-size="10" fill="#374151" font-family="system-ui,sans-serif">${lbl.slice(0,16)}</text>`;}
-  });
-  return svg+`</svg>`;
-}
 
 // ── S7 — PROJECT PLAN ═══════════════════════════════════════════════════════
 function S7_Plan(){
