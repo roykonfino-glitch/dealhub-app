@@ -1522,11 +1522,16 @@ function downloadProductTemplate(){
     ['SKU004','','','Services','Hours','One time','',''],
   ];
   const ws=XLSX.utils.aoa_to_sheet([headers,...rows]);
-  // Column widths
   ws['!cols']=[{wch:10},{wch:22},{wch:32},{wch:12},{wch:12},{wch:18},{wch:12},{wch:10}];
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,'Products',ws);
-  XLSX.writeFile(wb,'product_catalog_template.xlsx');
+  const wbout=XLSX.write(wb,{bookType:'xlsx',type:'array'});
+  const blob=new Blob([wbout],{type:'application/octet-stream'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='product_catalog_template.xlsx';
+  document.body.appendChild(a);a.click();
+  document.body.removeChild(a);URL.revokeObjectURL(url);
 }
 
 function clearSku(){st.skuFile='';st.skuCount=0;st.skus=[];st.productInsight='';st.colMap={};st.productFamilies='';save();render();}
