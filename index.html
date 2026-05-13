@@ -444,6 +444,7 @@ const STEPS=[
   {id:'transcript', label:'Client Transcript',  e:'🎙️', csmOnly:true},
   {id:'decisions',  label:'Decision Tree',       e:'🌿'},
   {id:'rules',      label:'Approvals & Terms',  e:'📋'},
+  {id:'output',     label:'Output Documents',   e:'📄'},
   {id:'review',     label:'Review & Generate',  e:'🚀'},
   {id:'plan',       label:'Project Plan',        e:'📅', csmOnly:true},
 ];
@@ -491,6 +492,8 @@ function freshSt(){return{
   // S_RDS (transcript step)
   transcriptRaw:'',transcriptLoading:false,transcriptError:'',transcriptApplied:false,
   rdsObservations:[],rdsQuotes:[],rdsImplications:[],rdsUseCaseSuggestions:[],
+  // S_OutputDocs
+  outputDocFiles:[],brandUrl:'',brandAnalysis:'',outputDocLoading:false,outputDocError:'',
   // S6
   csm:'',
   docGenerating:false,docError:'',lastDocHtml:'',lastDocRaw:'',planLoading:false,planError:'',projectPlan:[],
@@ -592,7 +595,7 @@ function render(){
   try{ drawProg(); }catch(e){ console.error('drawProg error:',e); }
   if(st.submitted){try{renderDone();drawFooter();}catch(e){console.error('done error:',e);}return;}
   try{
-    const fns=[S1,S2,S3,S_RDS,S4_Decisions,S5,S6,S7_Plan];
+    const fns=[S1,S2,S3,S_RDS,S4_Decisions,S5,S_OutputDocs,S6,S7_Plan];
     const stepFn=fns[st.step]||S1;
     const stepHtml=stepFn();
     const el=document.getElementById('content');
@@ -606,10 +609,10 @@ function render(){
   try{ drawTips(); }catch(e){ console.error('tips:',e); }
   try{ save(); }catch(e){ console.error('save error:',e); }
   // Auto-trigger generation on first arrival at Review (step 6) and Plan (step 7)
-  if(st.step===6&&!st.submitted&&!st.docGenerating&&!st.lastDocHtml&&!st.autoGenDocTriggered){
+  if(st.step===7&&!st.submitted&&!st.docGenerating&&!st.lastDocHtml&&!st.autoGenDocTriggered){
     st.autoGenDocTriggered=true;setTimeout(genDoc,800);
   }
-  if(st.step===7&&!st.submitted&&!st.planLoading&&!(st.projectPlan&&st.projectPlan.length)&&!st.autoGenPlanTriggered){
+  if(st.step===8&&!st.submitted&&!st.planLoading&&!(st.projectPlan&&st.projectPlan.length)&&!st.autoGenPlanTriggered){
     st.autoGenPlanTriggered=true;setTimeout(genProjectPlan,800);
   }
 }
@@ -1020,6 +1023,184 @@ Rules: condition phrased as DealHub would. Include real names mentioned if any.`
   st.extractLoading=false;render();
 }
 
+// ══ S_OutputDocs — OUTPUT DOCUMENTS ══════════════════════════════════════════
+let _outputFileObjects=[];
+
+function S_OutputDocs(){
+  const files=st.outputDocFiles||[];
+  const fileListHtml=files.length?`
+    <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">
+      ${files.map((f,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg);border:1px solid var(--border2);border-radius:7px;padding:7px 10px">
+        <span style="font-size:11px;color:var(--text2)">📎 ${esc(f.name)}</span>
+        <button onclick="removeOutputFile(${i})" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:0 4px" title="Remove">✕</button>
+      </div>`).join('')}
+    </div>`:'';
+
+  const analysisHtml=st.brandAnalysis?`
+    <div style="margin-top:16px;background:rgba(0,212,170,.06);border:1px solid rgba(0,212,170,.2);border-radius:10px;padding:14px 16px">
+      <div style="font-size:10px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">✓ Extracted brand & document notes</div>
+      <div style="font-size:11px;color:var(--text2);line-height:1.7;white-space:pre-wrap">${esc(st.brandAnalysis)}</div>
+      <button onclick="st.brandAnalysis='';st.outputDocFiles=[];_outputFileObjects=[];render()" style="margin-top:10px;background:none;border:1px solid var(--border2);color:var(--muted);border-radius:6px;padding:4px 10px;font-size:10px;cursor:pointer">Clear & re-upload</button>
+    </div>`:'';
+
+  const canAnalyze=(files.length>0||st.brandUrl.trim().length>0)&&!st.outputDocLoading&&!st.brandAnalysis;
+
+  return `<div class="card">
+<div class="ptitle">Output <em>Documents</em></div>
+<div class="psub">Upload sample order forms, your brand book, or share a DealRoom marketing link — we'll use these to style your output documents and DealRoom experience.</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+  <div>
+    <label class="lbl">Sample Order Forms</label>
+    <div class="shint" style="margin-bottom:8px">Existing quote or order form — we'll mirror the layout and sections</div>
+    <div class="dz" style="padding:14px;min-height:80px;display:flex;flex-direction:column;align-items:center;justify-content:center"
+      onclick="document.getElementById('odOrderFI').click()"
+      ondragover="event.preventDefault();this.classList.add('ov')"
+      ondragleave="this.classList.remove('ov')"
+      ondrop="this.classList.remove('ov');handleOutputFileDrop(event,'order')">
+      <input type="file" id="odOrderFI" accept=".pdf,.png,.jpg,.jpeg,.docx,.xlsx" multiple style="display:none" onchange="handleOutputFileAdd(this)">
+      <div style="font-size:20px;margin-bottom:4px">📋</div>
+      <div style="font-size:11px;font-weight:600">Drop order forms here</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px">PDF, Word, Excel, or image</div>
+    </div>
+  </div>
+  <div>
+    <label class="lbl">Brand Book / Style Guide</label>
+    <div class="shint" style="margin-bottom:8px">Logo, colors, fonts — used to style your DealRoom and output docs</div>
+    <div class="dz" style="padding:14px;min-height:80px;display:flex;flex-direction:column;align-items:center;justify-content:center"
+      onclick="document.getElementById('odBrandFI').click()"
+      ondragover="event.preventDefault();this.classList.add('ov')"
+      ondragleave="this.classList.remove('ov')"
+      ondrop="this.classList.remove('ov');handleOutputFileDrop(event,'brand')">
+      <input type="file" id="odBrandFI" accept=".pdf,.png,.jpg,.jpeg" multiple style="display:none" onchange="handleOutputFileAdd(this)">
+      <div style="font-size:20px;margin-bottom:4px">🎨</div>
+      <div style="font-size:11px;font-weight:600">Drop brand book here</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px">PDF or images</div>
+    </div>
+  </div>
+</div>
+
+${fileListHtml}
+
+<div class="hr"></div>
+
+<label class="lbl">DealRoom Marketing Guidelines URL <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+<div class="shint" style="margin-bottom:8px">Link to your marketing site, brand portal, or DealRoom demo — we'll extract design and content guidelines</div>
+<input class="inp" placeholder="https://..." value="${esc(st.brandUrl)}" oninput="st.brandUrl=this.value;save()" style="max-width:500px">
+
+<div style="margin-top:6px;font-size:11px;color:var(--muted)">Example DealRoom demos:</div>
+<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;margin-bottom:16px">
+  <a href="https://go-dealroom.dealhub.io/dealhub#!/hub?dealGUID=VHYElo71PfkyaMqy" target="_blank" style="font-size:11px;color:var(--primary);background:rgba(0,212,170,.08);border:1px solid rgba(0,212,170,.2);border-radius:6px;padding:3px 10px;text-decoration:none">Demo 1 ↗</a>
+  <a href="https://go-dealroom.dealhub.io/dealhub#!/hub?dealGUID=ghYMSvexsvtpuc4s" target="_blank" style="font-size:11px;color:var(--primary);background:rgba(0,212,170,.08);border:1px solid rgba(0,212,170,.2);border-radius:6px;padding:3px 10px;text-decoration:none">Demo 2 ↗</a>
+  <a href="https://go-dealroom.dealhub.io/dealhub#!/hub?dealGUID=4gZLUfO7pkFHwrnG" target="_blank" style="font-size:11px;color:var(--primary);background:rgba(0,212,170,.08);border:1px solid rgba(0,212,170,.2);border-radius:6px;padding:3px 10px;text-decoration:none">Demo 3 ↗</a>
+</div>
+
+${st.outputDocError?`<div style="margin-bottom:12px;font-size:11px;color:#f87171">⚠️ ${esc(st.outputDocError)}</div>`:''}
+
+${!st.brandAnalysis?`<button class="btn btn-p" onclick="analyzeOutputDocs()" ${canAnalyze?'':'disabled'} style="margin-bottom:4px">
+  ${st.outputDocLoading?'<span style="display:flex;align-items:center;gap:7px"><span class="spin spin-dk" style="width:12px;height:12px;border-width:2px"></span>Analysing…</span>':'🔍 Analyse Documents & URL'}
+</button>
+<div style="font-size:10px;color:var(--muted);margin-bottom:8px">Upload files or enter a URL above, then click to extract brand & layout notes</div>`:''}
+
+${analysisHtml}
+
+<div style="margin-top:16px;background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:12px 14px">
+  <div style="font-size:11px;font-weight:600;margin-bottom:4px">What we extract</div>
+  <div style="font-size:11px;color:var(--muted);line-height:1.7">Brand colors · Logo description · Font preferences · Order form sections & column structure · Terminology used · DealRoom content sections</div>
+</div>
+</div>`;
+}
+
+function handleOutputFileAdd(inp){
+  Array.from(inp.files).forEach(f=>{
+    if(!st.outputDocFiles.find(x=>x.name===f.name)){
+      st.outputDocFiles.push({name:f.name,type:f.type,size:f.size});
+      _outputFileObjects.push(f);
+    }
+  });
+  inp.value='';render();
+}
+
+function handleOutputFileDrop(e,_type){
+  e.preventDefault();
+  Array.from(e.dataTransfer.files).forEach(f=>{
+    if(!st.outputDocFiles.find(x=>x.name===f.name)){
+      st.outputDocFiles.push({name:f.name,type:f.type,size:f.size});
+      _outputFileObjects.push(f);
+    }
+  });
+  render();
+}
+
+function removeOutputFile(i){
+  st.outputDocFiles.splice(i,1);
+  _outputFileObjects.splice(i,1);
+  render();
+}
+
+async function analyzeOutputDocs(){
+  if(st.outputDocLoading)return;
+  st.outputDocLoading=true;st.outputDocError='';render();
+
+  const sys=`You are a DealHub implementation specialist analysing brand and document assets. Extract the following and return plain text (no JSON, no markdown headers):
+- Brand colors (hex if visible, or descriptions like "navy blue", "teal")
+- Logo description / company name if visible
+- Font style (serif, sans-serif, bold/clean, etc.)
+- Order form sections and column headers found
+- Document terminology (e.g. "Subscription Agreement" vs "Order Form", "License" vs "Seat")
+- DealRoom content suggestions (sections, tone, imagery style)
+Keep the output concise — 8-12 bullet points max.`;
+
+  try{
+    const parts=[];
+
+    // Add URL context
+    if(st.brandUrl.trim()){
+      parts.push({type:'text',text:`Marketing guidelines / DealRoom URL provided: ${st.brandUrl.trim()}\nPlease note this URL and reference it in your brand analysis for DealRoom content guidelines.`});
+    }
+
+    // Process uploaded files
+    for(const file of _outputFileObjects){
+      const ext=(file.name.split('.').pop()||'').toLowerCase();
+      if(['png','jpg','jpeg','gif','webp'].includes(ext)){
+        const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});
+        const mime=file.type||'image/jpeg';
+        parts.push({type:'image',source:{type:'base64',media_type:mime,data:b64}});
+        parts.push({type:'text',text:`(above image: ${file.name})`});
+      } else if(ext==='pdf'){
+        const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});
+        parts.push({type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}});
+        parts.push({type:'text',text:`(above document: ${file.name})`});
+      } else if(['xlsx','xls'].includes(ext)){
+        const buf=await file.arrayBuffer();
+        const text=await extractFileText(file.name,buf);
+        if(text) parts.push({type:'text',text:`=== ${file.name} ===\n${text.slice(0,8000)}`});
+      } else {
+        const text=await file.text();
+        parts.push({type:'text',text:`=== ${file.name} ===\n${text.slice(0,8000)}`});
+      }
+    }
+
+    if(!parts.length){
+      st.brandAnalysis=`URL noted: ${st.brandUrl.trim()}\n\nNo files uploaded — brand analysis will be based on URL reference only. Add specific design guidelines in the notes above if needed.`;
+      st.outputDocLoading=false;save();render();return;
+    }
+
+    parts.push({type:'text',text:'Analyse the above assets and extract brand and document structure notes.'});
+
+    const res=await fetch(PX,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      model:'claude-haiku-4-5-20251001',max_tokens:800,system:sys,
+      messages:[{role:'user',content:parts}]
+    })});
+    const d=await res.json();
+    if(d.error)throw new Error(d.error.message||JSON.stringify(d.error));
+    st.brandAnalysis=((d.content&&d.content[0]?d.content[0].text:'')||'No content extracted').trim();
+  }catch(e){
+    st.outputDocError='Could not analyse: '+e.message;
+  }
+  st.outputDocLoading=false;save();render();
+}
+
 function detectCtxWarnings(){
   if(!st.addCtx||!st.addCtx.trim())return[];
   const ctx=st.addCtx.toLowerCase();
@@ -1418,7 +1599,11 @@ ${st.rdsObservations.map(o=>`• ${o.currentState} → ${o.painPoint}`).join('\n
 KEY CLIENT QUOTES (use verbatim in design doc where appropriate):
 ${st.rdsQuotes.map(q=>`"${q.quote}" — ${q.speaker}`).join('\n')}
 CONFIGURATION IMPLICATIONS FROM TRANSCRIPT:
-${st.rdsImplications.map(r=>`• ${r.observation} → ${r.configImpact} (${r.section})`).join('\n')}`:''}`;
+${st.rdsImplications.map(r=>`• ${r.observation} → ${r.configImpact} (${r.section})`).join('\n')}`:''}
+${st.brandAnalysis?`
+BRAND & OUTPUT DOCUMENT NOTES (use to inform DealRoom styling recommendations and output document structure):
+${st.brandAnalysis}`:''}
+${st.brandUrl?`DealRoom / Marketing URL: ${st.brandUrl}`:''}`;
 
   const sys=`You are a senior DealHub Solution Architect writing a Configuration Design Document. You have reviewed 5+ real DealHub design documents and know the exact format used by DealHub Professional Services.
 
