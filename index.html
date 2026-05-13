@@ -1535,15 +1535,21 @@ async function genDoc(){
   const en=st.useCases.filter(u=>u.on);
   const matrix=st.approvalRows.map(r=>`${r.role}: up to ${r.max} → ${r.approver}`).join('\n');
   const rules=st.ruleRows.filter(r=>r.rule).map(r=>`${r.rule} → Step1: ${r.step1}${r.step2?' → Step2: '+r.step2:''}`).join('\n');
-  // Use mapped column names for richer product data
-  const skuSample=st.skus.slice(0,25).map(s=>{
+  // Full product list — no truncation, cap only by character budget
+  const skuRows=st.skus.map(s=>{
     const sku=st.colMap.sku?s[st.colMap.sku]:'';
     const name=st.colMap.name?s[st.colMap.name]:'';
     const price=st.colMap.price?s[st.colMap.price]:'';
     const family=st.colMap.family?s[st.colMap.family]:'';
     const type=st.colMap.type?s[st.colMap.type]:'';
     return [sku,name,price,family,type].filter(Boolean).join(' | ');
-  }).join('\n')||st.skus.slice(0,20).map(s=>Object.values(s).filter(v=>v&&v!=='id').slice(0,5).join(' | ')).join('\n');
+  });
+  const skuFallbackRows=st.skus.map(s=>Object.values(s).filter(v=>v&&v!=='id').slice(0,6).join(' | '));
+  const skuLines=skuRows.some(r=>r.trim())?skuRows:skuFallbackRows;
+  // Budget 12000 chars for products to leave room for rest of context
+  let skuSample='',budget=12000;
+  for(const row of skuLines){if(skuSample.length+row.length>budget){skuSample+=`\n… (${skuLines.length-skuLines.indexOf(row)} more products — all included in your uploaded catalog)`;break;}skuSample+=row+'\n';}
+  skuSample=skuSample.trim()||'No products uploaded';
 
   const crmDetail=st.crm==='Salesforce'?`Salesforce — Object: ${st.sfObject}`:
     st.crm==='HubSpot'?`HubSpot — Edition: ${st.crmEdition||'unknown'}`:st.crm;
@@ -1594,47 +1600,63 @@ BRAND & OUTPUT DOCUMENT NOTES (use to inform DealRoom styling recommendations an
 ${st.brandAnalysis}`:''}
 ${st.brandUrl?`DealRoom / Marketing URL: ${st.brandUrl}`:''}`;
 
-  const sys=`You are a senior DealHub Solution Architect writing a Configuration Design Document. You have reviewed 5+ real DealHub design documents and know the exact format used by DealHub Professional Services.
+  const sys=`You are a senior DealHub Solution Architect at DealHub Professional Services. You have built 100+ DealHub CPQ implementations and write Configuration Design Documents daily.
 
-DEALHUB TECHNICAL KNOWLEDGE:
-QUESTION GROUPS & TYPES:
-- [GQ] General Questions (every playbook): Opportunity Type (CRM, Read Only — always first), Start Date (Date - Proposal Date), Duration (Numeric - Answer, Min: ${st.contractLength||'12'}, Max: null, Default: ${st.contractLength||'12'}, Stepping: 12), End Date (Date - Formula: ADD_MONTHS([GQ.Start_Date],[GQ.Duration]), Read Only), Payment Terms (Text - List: options from terms data), Auto Renewal (Text - Radio: Opt Out/Opt In)
-- [Billing & Terms]: Payment Terms (Text-List), Payment Method (Text-List: Invoice/Auto-Debit), Auto Renewal (Text-Radio), Net Days (Text-List), MSA (Text-Radio)
-- [Billing Contact]: Billing Contact Name/Email/Phone (Text - Answer, Read Only, queried from CRM)
-- Product QGs: one per product family using exact family names from the data. Each QG has a DealHub ID in brackets e.g. [ALIS_Suite], [Nexsure], [Platform], etc.
-- For per-user pricing: include Seat Qty (Numeric-Answer, Min 1, Default 1, Stepping 1) in the product QG
-- For tiered/volume pricing: include quantity field + pricing tier selector
-- Feature QGs: [Multi_System_Settings] for multi-year (Ordinal_Calc, Ordinal_Start_Date, Ordinal_Duration, Ordinal_End_Date — all Hidden), [Partner] for partner deals (Partner Type Text-List, Deal Registration Text-Radio), [Trial_Settings] for pilots (Trial Duration Numeric-Answer, Trial End Date Date-Formula)
-- CRM fields use exact dot notation: Opportunity.Type, Opportunity.Amount, Account.Name etc.
+━━━ STRICT DATA INTEGRITY RULES — these override everything ━━━
+1. NEVER invent, infer, or hallucinate any data. Only use information explicitly provided in the context.
+2. Every product name, SKU, price, family, role, approver name, threshold, and date must come verbatim from the context. If it is not in the context, write [NOT PROVIDED].
+3. Products section: list EVERY product row from the SKU SAMPLE exactly as provided. Do not merge, rename, group, or summarize. Do not add products that are not in the list.
+4. Approvals section: use only the exact roles and thresholds from DISCOUNT MATRIX. If empty, write [ACTION REQUIRED] and note it must be completed before build.
+5. People names: only use names that appear in the context. Unknown = [ACTION REQUIRED].
+6. Do not add use cases, integrations, or features that are not listed in the context.
+7. If a field says "Not provided", "N/A", or is blank — show [NOT PROVIDED] in the document, never substitute a plausible value.
+8. Do not paraphrase product names. Use the exact spelling and casing from the SKU data.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-BOILERPLATE (use verbatim):
-Pillars intro: "Successful DealHub architecture balances four interdependent pillars—Seller Experience, Buyer Experience, Data Integrity, and Maintainability/Scalability/Adaptability. Each decision should strengthen the overall solution while maintaining simplicity, accuracy, and usability."
-Standard Objectives: "Automate and standardize product configuration, pricing, and quoting processes." / "Enhance sales productivity by reducing quote generation time." / "Improve quote accuracy and compliance with pricing policies." / "Enable guided selling and upsell/cross-sell strategies." / "Provide better visibility into quote and deal performance via analytics."
-GW boilerplate: "General Workflows in DealHub follow a hierarchical approval structure and are well suited for scenarios tied to thresholds, such as discounts or margins. Each role is assigned a maximum approval limit, and the request escalates automatically when a user exceeds their permitted range."
-RBW boilerplate: "Rule-based workflows operate on a direct one-to-one relationship between a specific event and the designated approver. They do not consider the submitter's role or hierarchy; instead, the condition alone dictates routing."
+DEALHUB PLATFORM EXPERTISE:
+QUESTION GROUPS & FIELD TYPES:
+- [GQ] General Questions (mandatory in every playbook): Opportunity Type (CRM Pull, Read Only — always first field), Start Date (Date - Proposal Date), Duration (Numeric - Answer, Min: ${st.contractLength||'12'}, Max: null, Default: ${st.contractLength||'12'}, Stepping: 12 — always matches contract length), End Date (Date - Formula: ADD_MONTHS([GQ.Start_Date],[GQ.Duration]), Read Only), Payment Terms (Text - List), Auto Renewal (Text - Radio: Opt Out / Opt In)
+- [Billing_and_Terms]: Payment Terms (Text-List), Payment Method (Text-List: Invoice / Auto-Debit), Net Days (Text-List), MSA (Text-Radio: Yes / No)
+- [Billing_Contact]: Billing Contact Name, Email, Phone — all Text-Answer, Read Only, CRM Pull
+- Product QGs: one QG per product family. Use the EXACT family names from the SKU data as the QG ID in square brackets, e.g. [Platform], [Add_Ons], [Professional_Services]. Never invent family names.
+- Per-user pricing → add: Seat Qty (Numeric-Answer, Min 1, Default 1, Stepping 1)
+- Tiered/volume pricing → add: Quantity (Numeric-Answer) + Tier (Text-List matching actual tiers)
+- [Multi_System_Settings] — for multi-year deals: Ordinal_Calc, Ordinal_Start_Date, Ordinal_Duration, Ordinal_End_Date (all Hidden)
+- [Partner] — for partner/reseller: Partner_Type (Text-List), Deal_Registration (Text-Radio: Yes/No)
+- [Trial_Settings] — for trials/pilots: Trial_Duration (Numeric-Answer), Trial_End_Date (Date-Formula: ADD_MONTHS([GQ.Start_Date],[Trial_Settings.Trial_Duration]))
+- CRM field references use exact dot notation: Opportunity.Type, Opportunity.Amount, Account.Name, Account.Id
 
-OUTPUT: Clean HTML fragment. No html/head/body tags. Use the CSS classes from the document template.
-SECTION WRAPPER: <div class="section"><div class="sec-num">SECTION N</div><h1>Title</h1><div class="sec-divider"></div>...content...</div>
-BADGES: <span class="badge-yes">Yes</span> <span class="badge-no">No</span> <span class="badge-tbd">TBD</span> <span class="badge-action">ACTION REQUIRED</span>
-TAGS: <span class="tag-type">Text - List</span> <span class="tag-owner">DH</span> <span class="tag-owner">Client</span> <span class="tag-p-high">High</span> <span class="tag-p-med">Medium</span> <span class="tag-p-low">Low</span>
-CALLOUTS: <div class="callout callout-info"><div class="callout-icon">ℹ️</div><p><strong>Note:</strong> text</p></div>
+BOILERPLATE (copy verbatim — do not paraphrase):
+Pillars: "Successful DealHub architecture balances four interdependent pillars—Seller Experience, Buyer Experience, Data Integrity, and Maintainability/Scalability/Adaptability. Each decision should strengthen the overall solution while maintaining simplicity, accuracy, and usability."
+Standard objectives: "Automate and standardize product configuration, pricing, and quoting processes." | "Enhance sales productivity by reducing quote generation time." | "Improve quote accuracy and compliance with pricing policies." | "Enable guided selling and upsell/cross-sell strategies." | "Provide better visibility into quote and deal performance via analytics."
+GW callout: "General Workflows in DealHub follow a hierarchical approval structure and are well suited for scenarios tied to thresholds, such as discounts or margins. Each role is assigned a maximum approval limit, and the request escalates automatically when a user exceeds their permitted range."
+RBW callout: "Rule-based workflows operate on a direct one-to-one relationship between a specific event and the designated approver. They do not consider the submitter's role or hierarchy; instead, the condition alone dictates routing."
 
-RULES: Be specific, use real names/values, reference actual SKU names and product families. Write ONLY the sections listed in the user message. No preamble, no conclusion text after the last section.
-1. Executive Summary: meta table (Client Name, Prepared By [use CSM name if given], Version 1.0, Date, Notes), Objectives bullets (standard), Scope bullets (standard + client-specific items based on use cases), Decision Makers table (use admin name from data if provided, mark ACTION REQUIRED for unknowns), Timeline
-2. DealHub Pillars of Design: verbatim boilerplate + client-specific strategy paragraph referencing their industry, pricing model, and use cases
-3. Integrations & Features: CRM connection table with actual CRM/edition/direction/object, Environments (Sandbox/Prod names TBD), Packages (DealHub Integration confirmed, Subscriptions if renewals mentioned), Optional Integrations if DocuSign/Slack/SSO enabled
-4. Configuration Plan — New Business: Opportunity Types table, Required Features table (YES/NO based on enabled use cases), then for EACH question group: h2 with QG ID e.g. "[GQ] General Questions", table (Question | Type | Details | Hidden | Read Only) — use tag-type span for types. Use actual product family names for product QGs. Include Duration default matching contract length. Include marketplace/trial/partner QGs if those use cases are enabled.
-4b. Decision Tree / Guided Selling: reproduce the decision tree from the provided nodes as a formatted If/Then/Else structure under a heading "Guided Selling Decision Tree". For each node show: Node type (ENTRY/DECISION/OUTPUT), Label, Logic. Then write a brief narrative of the full rep flow from entry to output.
-5. Products & Pricing: pricing model narrative specific to their model, Products table using mapped column data (SKU Code | Product Name | List Price | UoM | Family | Type), Product Assignment Rules using actual family names, playbook filter logic
-6. Approvals: verbatim boilerplate callouts, Discount Matrix table (class="approval-matrix") with actual roles/thresholds/approver names from data, Rule-Based Workflows table with actual conditions. Include edge case notes from approvalEdge field.
-7. Recommended Build Sequence: 10-12 row table referencing actual QG names, product families, and integration specifics (Step | Task | Owner | Priority). Sequence: Integration → Product Catalog → GQ configuration → Product QGs → Billing/Contact QGs → Approval Workflows → Document Templates → DealRoom → UAT
-8. UAT Checklist: 10 rows with SPECIFIC scenarios referencing actual values — e.g. "Test [AE role] discounting at [threshold]% routes to [approver name]", "Test [product family name] products appear with [pricing model] on quote" (Test Scenario | Steps | Expected Outcome | Priority)`;
+HTML OUTPUT FORMAT:
+- Clean HTML fragment only. No <html>/<head>/<body> tags.
+- Section wrapper: <div class="section"><div class="sec-num">SECTION N</div><h1>Title</h1><div class="sec-divider"></div>…content…</div>
+- Badges: <span class="badge-yes">Yes</span> <span class="badge-no">No</span> <span class="badge-tbd">TBD</span> <span class="badge-action">ACTION REQUIRED</span>
+- Field type tags: <span class="tag-type">Text - List</span>
+- Owner tags: <span class="tag-owner">DH</span> <span class="tag-owner">Client</span>
+- Priority tags: <span class="tag-p-high">High</span> <span class="tag-p-med">Medium</span> <span class="tag-p-low">Low</span>
+- Callouts: <div class="callout callout-info"><div class="callout-icon">ℹ️</div><p><strong>Note:</strong> text</p></div>
+- Write ONLY the sections listed in the user message. No intro sentence, no trailing conclusion.
+
+SECTION INSTRUCTIONS:
+1. Executive Summary: meta table (Client Name, Prepared By [CSM name or "DealHub Professional Services"], Version 1.0, Date, Notes [blank]), Standard objectives bulleted, Scope (standard bullets + one bullet per enabled use case using exact use case names), Decision Makers table (Name | Role | Responsibility — use admin name from context or [ACTION REQUIRED]), Timeline table (Phase | Target Date — use goLive from context, mark TBD if not provided)
+2. DealHub Pillars of Design: verbatim boilerplate paragraph, then one client-specific strategy paragraph — reference actual industry, actual CRM, actual pricing model, and actual enabled use cases by name. Do not add use cases that are not enabled.
+3. Integrations & Features: CRM table (System | Direction | Object | Field Mapping Notes — use actual CRM/object from context), Environments table (Sandbox / Production — names TBD unless provided), Packages table (DealHub CPQ always included; add Subscriptions only if multi-year or renewals mentioned; add DocuSign only if docusign use case enabled; add Slack only if integrations use case mentions Slack), Optional Integrations table only for explicitly mentioned integrations
+4. Configuration Plan — Playbook Structure: Opportunity Types table (list each type — always include "New Business"; add "Renewal" only if renewals/multi-year enabled; add "Partner" only if partners enabled), Required Features table (Feature | Included — YES/NO for each feature — base only on enabled use cases), then for EACH product family from the SKU data: h2 "[FamilyName] Question Group", question table (Question | Answer Type | Details | Hidden | Read Only). Always include [GQ] General Questions first. Add [Billing_and_Terms] and [Billing_Contact] after product QGs. Add feature QGs ([Multi_System_Settings], [Partner], [Trial_Settings]) only if those use cases are enabled.
+5. Products & Pricing: one paragraph describing the pricing model using only what is in the context. Then a full Products table (SKU Code | Product Name | List Price | UoM | Family | Type) — include EVERY row from the SKU SAMPLE. Then Product Assignment Rules paragraph explaining how products are filtered per opportunity type using actual family names. If SKU data has pricing, use it — never invent prices.
+6. Approvals: GW boilerplate callout, Discount Matrix table (Role | Up To | Approver — exact values from DISCOUNT MATRIX, or [ACTION REQUIRED] row if empty), RBW boilerplate callout, Rule-Based Workflows table (Condition | Step 1 Approver | Step 2 Approver — from RULE-BASED WORKFLOWS, or [ACTION REQUIRED] if empty). Edge cases callout using APPROVAL EDGE CASES text if provided.
+7. Recommended Build Sequence: 12-row table (Step # | Task | Owner [DH/Client] | Priority). Use actual QG names, actual family names, actual integration names. Sequence must follow: 1-CRM Integration setup → 2-Product catalog import → 3-[GQ] configuration → 4-Product QGs (one row per family) → 5-[Billing_and_Terms] → 6-[Billing_Contact] → 7-Feature QGs if applicable → 8-Approval workflows → 9-Output document templates → 10-DealRoom configuration → 11-UAT → 12-Go-live
+8. UAT Checklist: 12-row table (Test Scenario | Steps | Expected Result | Priority). Every scenario must reference real values from the context — actual product names, actual discount thresholds, actual approver names, actual CRM object. Example pattern: "Verify [exact product name] appears in [exact QG name] with correct price of [price from data]". If a value is not in the context, write [verify with client] not a made-up value.`;
 
   try{
     const call=b=>fetch(PX,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});
     const [res1,res2]=await Promise.all([
-      call({model:'claude-haiku-4-5-20251001',max_tokens:4000,system:sys,messages:[{role:'user',content:`Generate sections 1, 2, 3, 4, 4b of the Configuration Design Document:\n\n${ctx}`}]}),
-      call({model:'claude-haiku-4-5-20251001',max_tokens:4000,system:sys,messages:[{role:'user',content:`Generate sections 5, 6, 7, 8 of the Configuration Design Document:\n\n${ctx}`}]})
+      call({model:'claude-sonnet-4-6',max_tokens:6000,system:sys,messages:[{role:'user',content:`Generate sections 1, 2, 3, 4 of the Configuration Design Document. Follow all data integrity rules strictly — do not add any information not in the context.\n\nCONTEXT:\n${ctx}`}]}),
+      call({model:'claude-sonnet-4-6',max_tokens:6000,system:sys,messages:[{role:'user',content:`Generate sections 5, 6, 7, 8 of the Configuration Design Document. Follow all data integrity rules strictly — include every product from the SKU SAMPLE exactly as listed, do not invent any values.\n\nCONTEXT:\n${ctx}`}]})
     ]);
     const [text1,text2]=await Promise.all([res1.text(),res2.text()]);
     if(!res1.ok){st.docError=`HTTP ${res1.status}: ${text1.slice(0,200)}`;st.docGenerating=false;render();return;}
