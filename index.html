@@ -1652,27 +1652,50 @@ SECTION INSTRUCTIONS:
 7. Recommended Build Sequence: 12-row table (Step # | Task | Owner [DH/Client] | Priority). Use actual QG names, actual family names, actual integration names. Sequence must follow: 1-CRM Integration setup → 2-Product catalog import → 3-[GQ] configuration → 4-Product QGs (one row per family) → 5-[Billing_and_Terms] → 6-[Billing_Contact] → 7-Feature QGs if applicable → 8-Approval workflows → 9-Output document templates → 10-DealRoom configuration → 11-UAT → 12-Go-live
 8. UAT Checklist: 12-row table (Test Scenario | Steps | Expected Result | Priority). Every scenario must reference real values from the context — actual product names, actual discount thresholds, actual approver names, actual CRM object. Example pattern: "Verify [exact product name] appears in [exact QG name] with correct price of [price from data]". If a value is not in the context, write [verify with client] not a made-up value.`;
 
+  const DOC_MODEL='claude-haiku-4-5-20251001';
+  const RETRY_WAIT=65000; // 65s clears the 1-min rate limit window
+
+  async function docCall(body, label){
+    const run=async()=>{
+      const res=await fetch(PX,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      const text=await res.text();
+      if(res.status===429){
+        // Show countdown to user, then retry once
+        for(let s=65;s>0;s--){
+          st.docError=`Rate limit hit on ${label} — retrying in ${s}s…`;render();
+          await new Promise(r=>setTimeout(r,1000));
+        }
+        st.docError='';render();
+        const res2=await fetch(PX,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+        const text2=await res2.text();
+        if(!res2.ok) throw new Error(`HTTP ${res2.status}: ${text2.slice(0,200)}`);
+        return text2;
+      }
+      if(!res.ok) throw new Error(`HTTP ${res.status}: ${text.slice(0,200)}`);
+      return text;
+    };
+    return run();
+  }
+
   try{
-    const call=b=>fetch(PX,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});
-    const [res1,res2]=await Promise.all([
-      call({model:'claude-haiku-4-5-20251001',max_tokens:4000,system:sys,messages:[{role:'user',content:`Generate sections 1, 2, 3, 4 of the Configuration Design Document. Follow all data integrity rules strictly — do not add any information not in the context.\n\nCONTEXT:\n${ctx}`}]}),
-      call({model:'claude-haiku-4-5-20251001',max_tokens:4000,system:sys,messages:[{role:'user',content:`Generate sections 5, 6, 7, 8 of the Configuration Design Document. Follow all data integrity rules strictly — include every product from the SKU SAMPLE exactly as listed, do not invent any values.\n\nCONTEXT:\n${ctx}`}]})
-    ]);
-    const [text1,text2]=await Promise.all([res1.text(),res2.text()]);
-    if(!res1.ok){st.docError=`HTTP ${res1.status}: ${text1.slice(0,200)}`;st.docGenerating=false;render();return;}
-    if(!res2.ok){st.docError=`HTTP ${res2.status}: ${text2.slice(0,200)}`;st.docGenerating=false;render();return;}
+    // Sequential calls to stay inside the 4,000 output tokens/min rate limit
+    st.docError='Generating sections 1–4…';render();
+    const text1=await docCall({model:DOC_MODEL,max_tokens:4000,system:sys,messages:[{role:'user',content:`Generate sections 1, 2, 3, 4 of the Configuration Design Document. Follow all data integrity rules strictly — do not add any information not in the context.\n\nCONTEXT:\n${ctx}`}]},'Part 1');
+
+    st.docError='Generating sections 5–8…';render();
+    const text2=await docCall({model:DOC_MODEL,max_tokens:4000,system:sys,messages:[{role:'user',content:`Generate sections 5, 6, 7, 8 of the Configuration Design Document. Follow all data integrity rules strictly — include every product from the SKU SAMPLE exactly as listed, do not invent any values.\n\nCONTEXT:\n${ctx}`}]},'Part 2');
+
     let d1,d2;
-    try{d1=JSON.parse(text1);}catch(pe){st.docError=`Bad JSON: ${text1.slice(0,150)}`;st.docGenerating=false;render();return;}
-    try{d2=JSON.parse(text2);}catch(pe){st.docError=`Bad JSON: ${text2.slice(0,150)}`;st.docGenerating=false;render();return;}
+    try{d1=JSON.parse(text1);}catch(pe){st.docError=`Bad JSON (part 1): ${text1.slice(0,150)}`;st.docGenerating=false;render();return;}
+    try{d2=JSON.parse(text2);}catch(pe){st.docError=`Bad JSON (part 2): ${text2.slice(0,150)}`;st.docGenerating=false;render();return;}
     if(d1.error){st.docError=typeof d1.error==='string'?d1.error:(d1.error.message||JSON.stringify(d1.error));st.docGenerating=false;render();return;}
     if(d2.error){st.docError=typeof d2.error==='string'?d2.error:(d2.error.message||JSON.stringify(d2.error));st.docGenerating=false;render();return;}
     const c1=(d1.content&&d1.content[0]?d1.content[0].text:'')||'';
     const c2=(d2.content&&d2.content[0]?d2.content[0].text:'')||'';
-    console.log('genDoc s1:',d1.stop_reason,c1.length,'chars  s2:',d2.stop_reason,c2.length,'chars');
     const docContent=c1+'\n'+c2;
-    st.docGenerating=false;
+    st.docGenerating=false;st.docError='';
     st.lastDocRaw=docContent;
-    st.lastDocHtml=buildDocPage(docContent, false);
+    st.lastDocHtml=buildDocPage(docContent,false);
     save();render();
     const w=window.open('','_blank');
     if(w){w.document.write(st.lastDocHtml);w.document.close();}
