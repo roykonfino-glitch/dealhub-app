@@ -760,7 +760,7 @@ function submitForm(){
 // ══ S1 — ABOUT YOU ═════════════════════════════════════════════════════════
 function S1(){
   const crmExtra=st.crm==='Salesforce'
-    ?`<div><label class="lbl">Salesforce object for quotes?</label><select class="sel" onchange="st.sfObject=this.value;save()">${['Quote','Opportunity Line Item'].map(v=>`<option${st.sfObject===v?' selected':''}>${v}</option>`).join('')}</select></div>`
+    ?`<div><label class="lbl">Salesforce object for quotes?</label><select class="sel" onchange="st.sfObject=this.value;save()">${['Quote','Opportunity Line Item','Don\'t know'].map(v=>`<option${st.sfObject===v?' selected':''}>${v}</option>`).join('')}</select></div>`
     :st.crm==='HubSpot'
     ?`<div><label class="lbl">HubSpot edition?</label><select class="sel" onchange="st.crmEdition=this.value;save()">${['','Essential','Professional','Enterprise'].map(v=>`<option value="${v}"${st.crmEdition===v?' selected':''}>${v||'Select…'}</option>`).join('')}</select></div>`
     :`<div><label class="lbl">CRM edition / version</label><input class="inp" placeholder="e.g. Enterprise, v2023…" value="${esc(st.crmEdition)}" oninput="st.crmEdition=this.value;save()"></div>`;
@@ -1138,6 +1138,52 @@ Rules: condition phrased as DealHub would. Include real names mentioned if any.`
   st.extractLoading=false;render();
 }
 
+function detectCtxWarnings(){
+  if(!st.addCtx||!st.addCtx.trim())return[];
+  const ctx=st.addCtx.toLowerCase();
+  const warnings=[];
+  const ucOn=new Set(st.useCases.filter(u=>u.on).map(u=>u.k));
+  const pm=st.pricingModels||[];
+
+  // Pricing model gaps
+  if(/per[\s-]?(seat|user|license|agent|person|head)/.test(ctx)&&!pm.includes('per_user'))
+    warnings.push('You mentioned per-seat/user pricing — select it under pricing models (Step 3)');
+  if(/tier(ed|s)?[\s-]pricing|volume[\s-]discount|tier[\s-]based/.test(ctx)&&!pm.includes('tiered'))
+    warnings.push('You mentioned tiered pricing — select it under pricing models (Step 3)');
+  if(/usage[\s-]based|metered|consumption|pay[\s-]as[\s-]you[\s-]go/.test(ctx)&&!pm.includes('per_transaction'))
+    warnings.push('You mentioned usage-based pricing — select it under pricing models (Step 3)');
+  if(/flat[\s-](fee|rate|price)|fixed[\s-](fee|rate|price)/.test(ctx)&&!pm.includes('flat'))
+    warnings.push('You mentioned flat fee pricing — select it under pricing models (Step 3)');
+  if(/platform[\s-]plus|platform[\s-]&[\s-]user|platform fee/.test(ctx)&&!pm.includes('platform_plus_user'))
+    warnings.push('You mentioned platform + user pricing — select it under pricing models (Step 3)');
+
+  // Use case gaps
+  [{p:/multi[\s-]?year|\b[23456][\s-]?year[\s-]?(deal|contract|term)|annual uplift|cpi[\s%]/,k:'multiyear',l:'multi-year contracts'},
+   {p:/\bpartner\b|reseller|channel[\s-]partner|distributor|\bvar\b/,k:'partners',l:'partner/reseller deals'},
+   {p:/ramp[\s-]?(up|ing|ed)?\b|ramping/,k:'ramp',l:'ramp-up pricing'},
+   {p:/docusign|e[\s-]?sign(ature)?|electronic[\s-]sign|esignature/,k:'docusign',l:'DocuSign / e-signature'},
+   {p:/\btrial\b|\bpilot\b|\bpoc\b|proof[\s-]of[\s-]concept/,k:'trials',l:'trials & pilots'},
+   {p:/marketplace|appexchange|app exchange|aws[\s-]marketplace|azure[\s-]marketplace/,k:'marketplace',l:'marketplace sales'},
+   {p:/redlin(e|ing)|contract[\s-]markup|contract[\s-]negotiat/,k:'redline',l:'contract redlining'},
+   {p:/overage|usage[\s-]limit|consumption[\s-]cap/,k:'overage',l:'usage & overages'},
+   {p:/optional[\s-]add[\s-]?on|add[\s-]on product|optional product/,k:'optional',l:'optional add-ons'},
+   {p:/\bslack\b|\berp\b|\bsso\b|single[\s-]sign[\s-]on/,k:'integrations',l:'other integrations'},
+  ].forEach(({p,k,l})=>{
+    if(p.test(ctx)&&!ucOn.has(k))
+      warnings.push(`You mentioned ${l} — enable it in use cases (Step 3)`);
+  });
+
+  // Product catalog missing
+  if(/\bsku\b|\bskus\b|product[\s-]catalog|product[\s-]list|price[\s-]?book|product line|product famil/.test(ctx)&&st.skuCount===0)
+    warnings.push('You mentioned products/SKUs — upload your catalog in Step 2 so the design doc reflects your product structure');
+
+  // Approval thresholds described but none entered
+  if(/\d+\s*%|approval threshold|sign[\s-]off|approver|discount limit|approval matrix/.test(ctx)&&st.approvalRows.length===0)
+    warnings.push('You described approval thresholds — add them to the approval matrix in Step 5 so they appear in the design doc');
+
+  return warnings;
+}
+
 // ══ S6 — REVIEW & GENERATE ════════════════════════════════════════════════════
 function S6(){
   const en=st.useCases.filter(u=>u.on);
@@ -1148,6 +1194,12 @@ function S6(){
   const gapList=gaps.length?`<div style="margin-top:10px">
     <div style="font-size:10px;font-weight:700;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Still missing:</div>
     <div style="display:flex;flex-wrap:wrap;gap:5px">${gaps.map(g=>`<span style="background:#1a2d4a;border:1px solid #f87171;color:#f87171;border-radius:5px;padding:2px 8px;font-size:10px">${g}</span>`).join('')}</div>
+  </div>`:'';
+
+  const ctxWarnings=detectCtxWarnings();
+  const ctxWarnHtml=ctxWarnings.length?`<div style="margin-top:10px;background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.3);border-radius:8px;padding:11px 13px">
+    <div style="font-size:10px;font-weight:700;color:#d97706;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">⚠️ Mentioned in your context — but not yet configured</div>
+    ${ctxWarnings.map(w=>`<div style="font-size:11px;color:#d97706;line-height:1.6;margin-bottom:2px">• ${w}</div>`).join('')}
   </div>`:'';
 
   const stats=[
@@ -1173,6 +1225,7 @@ function S6(){
   </div>
   <div style="font-size:11px;color:${scoreColor}">${scoreLabel}</div>
   ${gapList}
+  ${ctxWarnHtml}
 </div>
 
 <div class="rev-grid">
