@@ -58,7 +58,7 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 .pa{color:var(--border2);font-size:10px;margin-left:8px}
 
 /* ── Layout ── */
-.page{display:grid;grid-template-columns:1fr 272px;min-height:calc(100vh - 96px)}
+.page{display:grid;grid-template-columns:1fr;min-height:calc(100vh - 96px)}
 .content{padding:28px;overflow-y:auto}
 .aside{background:var(--bg2);border-left:1px solid var(--border);padding:18px;display:flex;flex-direction:column}
 
@@ -170,7 +170,7 @@ input:checked+.sw-t:before{transform:translateX(17px);background:var(--primary)}
 .dot{width:5px;height:5px;border-radius:50%;background:var(--primary);animation:bop 1.2s infinite}
 .dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
 .prog{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 28px;display:flex;overflow-x:auto}
-.page{display:grid;grid-template-columns:1fr 272px;min-height:calc(100vh - 96px)}
+.page{display:grid;grid-template-columns:1fr;min-height:calc(100vh - 96px)}
 .ptitle{font-size:21px;font-weight:800;margin-bottom:6px;line-height:1.2;color:var(--text);letter-spacing:-.3px}
 .ptitle em{color:var(--primary);font-style:normal}
 .psub{font-size:13px;color:var(--muted);line-height:1.65;margin-bottom:22px;max-width:580px}
@@ -277,7 +277,7 @@ input:checked+.sw-t:before{transform:translateX(17px);background:var(--primary)}
 .ps.done .pn{background:#2dd4a8;color:#fff}
 .pl{font-size:12px;font-weight:600;color:rgba(255,255,255,.45)}
 .pa{color:rgba(255,255,255,.2);font-size:11px;margin-left:8px}
-.page{display:grid;grid-template-columns:1fr 280px;min-height:calc(100vh - 98px)}
+.page{display:grid;grid-template-columns:1fr;min-height:calc(100vh - 98px)}
 .content{padding:28px;max-width:740px}
 .aside{background:var(--card);border-left:1px solid var(--border);padding:16px;display:flex;flex-direction:column}
 .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.05)}
@@ -519,26 +519,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
 <div class="prog" id="prog"></div>
 <div class="page">
   <div class="content" id="content"></div>
-  <div class="aside" id="aside">
-    <div class="tips-wrap">
-      <div class="tips-hdr">
-        <span style="font-size:15px">🤖</span>
-        <div>
-          <div class="tips-ttl">DealHub Assistant</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:1px" id="tipStepTag">Step 1</div>
-        </div>
-      </div>
-      <div id="assistantMsgs" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:10px"></div>
-      <div style="display:flex;gap:6px;flex-shrink:0">
-        <input id="assistantInput" style="flex:1;background:var(--bg);border:1px solid var(--border2);color:var(--text);border-radius:7px;padding:7px 10px;font-size:11px;outline:none;font-family:inherit" placeholder="Ask anything…" onkeydown="if(event.key==='Enter')sendAssistant()">
-        <button onclick="sendAssistant()" style="background:var(--primary);border:none;border-radius:7px;padding:7px 11px;color:#0a1525;font-size:13px;cursor:pointer;font-weight:700">↗</button>
-      </div>
-      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);display:flex;align-items:center;gap:5px">
-        <span id="saveIndicator" style="width:7px;height:7px;border-radius:50%;background:var(--primary);display:inline-block;flex-shrink:0"></span>
-        <span style="font-size:10px;color:var(--muted)">Auto-saving to database</span>
-      </div>
-    </div>
-  </div>
+  <div class="aside" id="aside" style="display:none"></div>
 </div>
 <div class="footer" id="footer"></div>
 <div class="save-toast" id="saveToast">✓ Saved</div>
@@ -694,79 +675,9 @@ async function syncToDb(submitted){
 function pushAI(){}
 function checkUCDetail(){}
 
-// ── ASSISTANT ─────────────────────────────────────────────────────────────────
-let assistantHistory=[];
-let assistantLoading=false;
-let assistantSeenStep=new Set();
-
-const STEP_INTROS=[
-  'Hi! I\'m your <strong>DealHub implementation assistant</strong>. I\'ll guide you through this form and answer any questions about DealHub configuration. Start with your company name and CRM — what are you working with?',
-  'Great. For <strong>products</strong> — upload your catalog even if it\'s not finalised. I\'ll analyse it instantly and tell you what it means for your DealHub setup. What does your product catalog look like right now?',
-  'Now the important part — <strong>how you sell</strong>. Select every use case that applies to your business, then describe your typical deal flow. The more detail here, the better your design document will be.',
-  'This is the <strong>most critical step</strong>. Describe your quoting flow in plain English and I\'ll build the decision tree automatically. Every decision point becomes a DealHub presentation rule.',
-  'For <strong>approvals</strong> — describe your process naturally, like explaining to a new colleague. I\'ll extract the discount matrix and rule-based workflows. Include real names and thresholds where you know them.',
-  'Almost done. Check your <strong>completion score</strong> — fill any red gaps before generating. The design document takes about 20 seconds and opens as a printable HTML page.',
-  '<strong>Project Plan</strong> — this is CSM-internal. Generate it, review it, adjust the timelines, then share with the client. Click "Generate Project Plan" to get started.',
-];
-
-function drawTips(){
-  const tag=document.getElementById('tipStepTag');
-  if(tag)tag.textContent=`Step ${st.step+1} — ${(STEPS[st.step]&&STEPS[st.step].label||'')||''}`;
-  // Trigger intro message when step changes
-  if(!assistantSeenStep.has(st.step)){
-    assistantSeenStep.add(st.step);
-    const intro=STEP_INTROS[Math.min(st.step,STEP_INTROS.length-1)];
-    if(intro){
-      setTimeout(()=>{
-        assistantHistory.push({role:'assistant',content:intro});
-        renderAssistant();
-      },400);
-    }
-  } else {
-    renderAssistant();
-  }
-}
-
-function renderAssistant(){
-  const el=document.getElementById('assistantMsgs');
-  if(!el)return;
-  el.innerHTML=assistantHistory.map(m=>{
-    if(m.role==='assistant') return `<div style="background:rgba(0,212,170,.07);border-left:2px solid var(--primary);border-radius:0 8px 8px 0;padding:10px 12px;font-size:11px;color:var(--text2);line-height:1.65">${m.content}</div>`;
-    return `<div style="background:var(--card2);border-radius:8px 8px 2px 8px;padding:9px 11px;font-size:11px;color:var(--text2);align-self:flex-end;text-align:right;max-width:90%;margin-left:auto">${esc(m.content)}</div>`;
-  }).join('');
-  if(assistantLoading) el.innerHTML+=`<div style="display:flex;gap:4px;padding:10px 12px"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>`;
-  el.scrollTop=el.scrollHeight;
-}
-
-async function sendAssistant(){
-  const inp=document.getElementById('assistantInput');
-  const txt=(inp?.value||'').trim();
-  if(!txt||assistantLoading)return;
-  inp.value='';
-  assistantHistory.push({role:'user',content:txt});
-  assistantLoading=true;
-  renderAssistant();
-
-  const en=st.useCases.filter(u=>u.on).map(u=>u.n);
-  const sys=`You are a DealHub CPQ implementation expert helping a client complete their discovery form. You have deep knowledge of DealHub's platform: question groups, approval workflows, guided selling, pricing models, CRM integrations, and implementation methodology.
-Current context: Company: ${st.co||'unknown'} | CRM: ${st.crm} | Industry: ${st.industry||'unknown'} | Products: ${st.skuCount} SKUs | Pricing: ${st.pricingModel||'unknown'} | Use cases: ${en.join(', ')||'none yet'} | Contract: ${st.contractLength||'12'}mo | Step: ${(STEPS[st.step]&&STEPS[st.step].label||'')}
-Guidelines: Be specific and helpful. Reference DealHub terminology naturally (question groups, playbook, approvals, DealRoom). Keep answers concise — 2-4 sentences. If they ask about configuration details, explain how DealHub handles it. End with a relevant follow-up question to help them fill in the form.`;
-
-  const msgs=assistantHistory.map(m=>({role:m.role==='assistant'?'assistant':'user',content:m.content.replace(/<[^>]+>/g,'')}));
-
-  try{
-    const res=await fetch(PX,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-      model:'claude-haiku-4-5-20251001',max_tokens:250,system:sys,messages:msgs
-    })});
-    const d=await res.json();
-    const reply=((d.content&&d.content[0]?d.content[0].text:'')||'Sorry, I could not reach the server.').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
-    assistantHistory.push({role:'assistant',content:reply});
-  }catch(e){
-    assistantHistory.push({role:'assistant',content:'⚠️ Could not reach the assistant. Check your connection and try again.'});
-  }
-  assistantLoading=false;
-  renderAssistant();
-}
+function drawTips(){}
+function sendAssistant(){}
+function renderAssistant(){}
 
 // ── COMPLETION SCORE ────────────────────────────────────────────────────────
 function scoreCompletion(){
@@ -1437,8 +1348,6 @@ Include only fields where you found clear evidence (omit or use "" if unknown):
     const parsed=JSON.parse(raw);
     applyImportData(parsed);
     st.importDone=true;
-    assistantHistory.push({role:'assistant',content:`✨ I've read <strong>${esc(file.name)}</strong> and pre-filled the form. Check the fields below — I've highlighted everything I found. Correct anything that looks off, then click Continue.`});
-    renderAssistant();
   }catch(e){
     st.importError='Could not analyse document: '+e.message;
   }
@@ -1812,8 +1721,6 @@ RULES: entry = first CRM trigger (one only, always first). decision = branching 
     if(!Array.isArray(parsed)||!parsed.length){st.dtAiError='Could not parse — try rephrasing your flow.';st.dtAiLoading=false;render();return;}
     st.decisionNodes=parsed.map(n=>({id:uid(),type:n.type||'decision',label:n.label||'',value:n.value||'',children:[]}));
     st.dtAiLoading=false;save();render();
-    assistantHistory.push({role:'assistant',content:`Built <strong>${st.decisionNodes.length} nodes</strong> with ${st.decisionNodes.filter(n=>n.type==='decision').length} decision point(s) and Yes/No branches. Does the flowchart on the right match how your reps actually quote?`});
-    renderAssistant();
   }catch(e){st.dtAiError='Could not reach AI.';st.dtAiLoading=false;render();}
 }
 
