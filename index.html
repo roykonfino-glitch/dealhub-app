@@ -1671,7 +1671,7 @@ Standard QGs every playbook needs:
 General Workflow: hierarchical approval by role/threshold from discount matrix — escalates automatically when rep exceeds their limit.
 Rule-Based Workflow: event-condition → fixed approver routing. Not role-based. Use for special conditions (product type, deal type, terms).
 
-HTML FORMAT — clean fragment, no html/head/body tags:
+HTML FORMAT — CRITICAL: output raw HTML only. Do NOT wrap in markdown code fences (no \`\`\`html or \`\`\`). Clean fragment, no html/head/body tags:
 - Section: <div class="section"><div class="section-header"><span class="section-num">N.</span><span class="section-title">Title</span></div>...content...</div>
 - Sub-header: <h2>Sub Title</h2>
 - Paragraph: <p>text</p>
@@ -1741,8 +1741,9 @@ SECTION INSTRUCTIONS:
     try{d2=JSON.parse(text2);}catch(pe){st.docError=`Bad JSON (part 2): ${text2.slice(0,150)}`;st.docGenerating=false;render();return;}
     if(d1.error){st.docError=typeof d1.error==='string'?d1.error:(d1.error.message||JSON.stringify(d1.error));st.docGenerating=false;render();return;}
     if(d2.error){st.docError=typeof d2.error==='string'?d2.error:(d2.error.message||JSON.stringify(d2.error));st.docGenerating=false;render();return;}
-    const c1=(d1.content&&d1.content[0]?d1.content[0].text:'')||'';
-    const c2=(d2.content&&d2.content[0]?d2.content[0].text:'')||'';
+    const stripFences=s=>s.replace(/^```[\w]*\r?\n?/,'').replace(/\r?\n?```\s*$/,'').trim();
+    const c1=stripFences((d1.content&&d1.content[0]?d1.content[0].text:'')||'');
+    const c2=stripFences((d2.content&&d2.content[0]?d2.content[0].text:'')||'');
     const docContent=c1+'\n'+c2;
     st.docGenerating=false;st.docError='';st.docStatus='';
     st.lastDocRaw=docContent;
