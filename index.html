@@ -575,13 +575,14 @@ async function sbLoad(id){
 }
 
 const STEPS=[
-  {id:'about',     label:'About You',         e:'🏢'},
-  {id:'products',  label:'Your Products',     e:'📦'},
-  {id:'selling',   label:'How You Sell',      e:'💡'},
-  {id:'decisions', label:'Decision Tree',     e:'🌿'},
-  {id:'rules',     label:'Approvals & Terms', e:'📋'},
-  {id:'review',    label:'Review & Generate', e:'🚀'},
-  {id:'plan',      label:'Project Plan',      e:'📅', csmOnly:true},
+  {id:'about',      label:'About You',          e:'🏢'},
+  {id:'products',   label:'Your Products',      e:'📦'},
+  {id:'selling',    label:'How You Sell',        e:'💡'},
+  {id:'transcript', label:'Client Transcript',  e:'🎙️', csmOnly:true},
+  {id:'decisions',  label:'Decision Tree',       e:'🌿'},
+  {id:'rules',      label:'Approvals & Terms',  e:'📋'},
+  {id:'review',     label:'Review & Generate',  e:'🚀'},
+  {id:'plan',       label:'Project Plan',        e:'📅', csmOnly:true},
 ];
 
 // Core use cases shown upfront
@@ -624,7 +625,10 @@ function freshSt(){return{
   extractLoading:false,extractErr:'',
   approvalEdge:'',
   payTerms:'',netDays:'',autoRenew:'',msa:'',otherTerms:'',
-  // S5
+  // S_RDS (transcript step)
+  transcriptRaw:'',transcriptLoading:false,transcriptError:'',transcriptApplied:false,
+  rdsObservations:[],rdsQuotes:[],rdsImplications:[],rdsUseCaseSuggestions:[],
+  // S6
   csm:'',
   docGenerating:false,docError:'',lastDocHtml:'',lastDocRaw:'',planLoading:false,planError:'',projectPlan:[],
   mmGenerating:false,mmError:'',
@@ -795,7 +799,7 @@ function render(){
   try{ drawProg(); }catch(e){ console.error('drawProg error:',e); }
   if(st.submitted){try{renderDone();drawFooter();}catch(e){console.error('done error:',e);}return;}
   try{
-    const fns=[S1,S2,S3,S4_Decisions,S5,S6,S7_Plan];
+    const fns=[S1,S2,S3,S_RDS,S4_Decisions,S5,S6,S7_Plan];
     const stepFn=fns[st.step]||S1;
     const stepHtml=stepFn();
     const el=document.getElementById('content');
@@ -808,11 +812,11 @@ function render(){
   try{ drawFooter(); }catch(e){ console.error('footer:',e); }
   try{ drawTips(); }catch(e){ console.error('tips:',e); }
   try{ save(); }catch(e){ console.error('save error:',e); }
-  // Auto-trigger generation on first arrival at Review (step 5) and Plan (step 6)
-  if(st.step===5&&!st.submitted&&!st.docGenerating&&!st.lastDocHtml&&!st.autoGenDocTriggered){
+  // Auto-trigger generation on first arrival at Review (step 6) and Plan (step 7)
+  if(st.step===6&&!st.submitted&&!st.docGenerating&&!st.lastDocHtml&&!st.autoGenDocTriggered){
     st.autoGenDocTriggered=true;setTimeout(genDoc,800);
   }
-  if(st.step===6&&!st.submitted&&!st.planLoading&&!(st.projectPlan&&st.projectPlan.length)&&!st.autoGenPlanTriggered){
+  if(st.step===7&&!st.submitted&&!st.planLoading&&!(st.projectPlan&&st.projectPlan.length)&&!st.autoGenPlanTriggered){
     st.autoGenPlanTriggered=true;setTimeout(genProjectPlan,800);
   }
 }
@@ -1516,7 +1520,15 @@ ${rules||'None defined'}
 
 COMMERCIAL TERMS:
 Payment method: ${st.payTerms||'N/A'} | Net days: ${st.netDays||'N/A'}
-Auto-renewal: ${st.autoRenew||'N/A'} | MSA: ${st.msa||'N/A'} | Other: ${st.otherTerms||'None'}`;
+Auto-renewal: ${st.autoRenew||'N/A'} | MSA: ${st.msa||'N/A'} | Other: ${st.otherTerms||'None'}
+${st.rdsObservations.length?`
+TRANSCRIPT INSIGHTS (from client discovery call — use these to enrich pain points and design rationale):
+CURRENT STATE & PAIN POINTS:
+${st.rdsObservations.map(o=>`• ${o.currentState} → ${o.painPoint}`).join('\n')}
+KEY CLIENT QUOTES (use verbatim in design doc where appropriate):
+${st.rdsQuotes.map(q=>`"${q.quote}" — ${q.speaker}`).join('\n')}
+CONFIGURATION IMPLICATIONS FROM TRANSCRIPT:
+${st.rdsImplications.map(r=>`• ${r.observation} → ${r.configImpact} (${r.section})`).join('\n')}`:''}`);
 
   const sys=`You are a senior DealHub Solution Architect writing a Configuration Design Document. You have reviewed 5+ real DealHub design documents and know the exact format used by DealHub Professional Services.
 
@@ -1606,6 +1618,127 @@ function togglePricingModel(k){
   if(idx>=0)st.pricingModels.splice(idx,1);
   else st.pricingModels.push(k);
   st.pricingModel=st.pricingModels.join(',');
+  save();render();
+}
+
+// ── S_RDS — CLIENT TRANSCRIPT (REVERSE DEMO SCRIPT) ════════════════════════
+function S_RDS(){
+  const hasTranscript=st.transcriptRaw.trim().length>40;
+  const hasResults=st.rdsObservations.length>0||st.rdsQuotes.length>0;
+
+  const obsHtml=st.rdsObservations.map(o=>`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div style="background:var(--bg);border:1px solid var(--border2);border-left:3px solid var(--muted2);border-radius:8px;padding:12px">
+        <div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px">Current State</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.6">${esc(o.currentState||'')}</div>
+      </div>
+      <div style="background:var(--bg);border:1px solid var(--border2);border-left:3px solid var(--danger);border-radius:8px;padding:12px">
+        <div style="font-size:9px;font-weight:700;color:#f87171;text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px">Pain Point</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.6">${esc(o.painPoint||'')}</div>
+      </div>
+    </div>`).join('');
+
+  const quotesHtml=st.rdsQuotes.map(q=>`
+    <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="width:8px;height:8px;border-radius:50%;background:var(--primary);flex-shrink:0;margin-top:5px"></div>
+      <div style="min-width:90px;font-size:10px;font-weight:700;color:var(--text);flex-shrink:0">${esc(q.speaker||'Client')}</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.6;font-style:italic">"${esc(q.quote||'')}"</div>
+    </div>`).join('');
+
+  const implHtml=st.rdsImplications.map(r=>`
+    <tr>
+      <td style="font-size:11px;color:var(--text2)">${esc(r.observation||'')}</td>
+      <td style="font-size:11px;color:var(--primary)">${esc(r.configImpact||'')}</td>
+      <td style="font-size:10px;color:var(--muted)">${esc(r.section||'')}</td>
+    </tr>`).join('');
+
+  const applyBadge=st.transcriptApplied
+    ?`<span style="background:rgba(0,212,170,.15);border:1px solid rgba(0,212,170,.3);color:var(--primary);border-radius:5px;padding:2px 8px;font-size:10px;font-weight:700">&#10003; Applied to profile</span>`
+    :'';
+
+  return `<div class="card">
+<div class="ptitle">Client <em>Transcript</em></div>
+<div class="psub">Paste the discovery call or demo recording transcript. Claude will extract pain points, current-state observations, and verbatim quotes — and map each one to a DealHub configuration implication that feeds directly into your design document.</div>
+
+<div class="slbl">Raw Transcript</div>
+<div class="shint" style="margin-bottom:8px">Paste the full Fathom / Gong / Otter transcript. Speaker labels ("James Okafor: ...") improve extraction quality but are not required.</div>
+<textarea class="ta" rows="10" placeholder="Paste meeting transcript here..." oninput="st.transcriptRaw=this.value;save()">${esc(st.transcriptRaw)}</textarea>
+<div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
+  <div style="font-size:10px;color:var(--muted)">${st.transcriptRaw.length} chars ${hasTranscript?'&#10003; ready to analyze':'&mdash; paste transcript above'}</div>
+  <button class="btn btn-p" onclick="analyzeTranscript()" ${st.transcriptLoading||!hasTranscript?'disabled':''} style="font-size:12px">
+    ${st.transcriptLoading?'<span style="display:flex;align-items:center;gap:7px"><span class="spin spin-dk" style="width:12px;height:12px;border-width:2px"></span>Analyzing…</span>':'&#128269; Analyze Transcript'}
+  </button>
+</div>
+${st.transcriptError?`<div style="margin-top:8px;font-size:10px;color:var(--danger)">&#9888; ${esc(st.transcriptError)}</div>`:''}
+
+${hasResults?`
+<div class="hr" style="margin:20px 0"></div>
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+  <div style="font-size:14px;font-weight:700;color:var(--text)">Extracted Insights</div>
+  <div style="display:flex;align-items:center;gap:8px">
+    ${applyBadge}
+    <button class="btn btn-sm btn-p" onclick="applyTranscript()" ${st.transcriptApplied?'disabled':''} style="font-size:11px">
+      ${st.transcriptApplied?'&#10003; Applied':'&#9889; Apply to my profile'}
+    </button>
+  </div>
+</div>
+${obsHtml?`<div class="slbl" style="margin-bottom:8px">Current State vs Pain Points</div>${obsHtml}`:''}
+${quotesHtml?`<div class="slbl" style="margin-top:16px;margin-bottom:8px">Key Verbatim Quotes</div>
+<div style="background:var(--bg);border:1px solid var(--border2);border-radius:8px;padding:4px 12px">${quotesHtml}</div>`:''}
+${implHtml?`<div class="slbl" style="margin-top:16px;margin-bottom:8px">Observation &rarr; Configuration Map</div>
+<table style="font-size:12px">
+  <thead><tr><th>What the Client Said / Showed</th><th>DealHub Configuration Response</th><th>Section</th></tr></thead>
+  <tbody>${implHtml}</tbody>
+</table>`:''}
+`:''}
+</div>`;
+}
+
+async function analyzeTranscript(){
+  if(!st.transcriptRaw.trim())return;
+  st.transcriptLoading=true;st.transcriptError='';render();
+  const sys=`You are a senior DealHub Solution Architect. Extract structured insights from a B2B SaaS discovery call transcript to inform a DealHub CPQ Configuration Design Document.
+
+Return ONLY valid JSON, no markdown fences, no preamble:
+{"observations":[{"currentState":"what they currently do","painPoint":"the problem this causes"}],"quotes":[{"speaker":"name or Client","quote":"verbatim quote max 25 words"}],"implications":[{"observation":"what was said","configImpact":"specific DealHub config response","section":"e.g. S4 Playbook"}],"useCaseSuggestions":["key1"]}
+
+Valid useCaseSuggestions keys: multiyear,ramp,partners,trials,overage,optional,cpi,redline,docusign,marketplace,custom,integrations
+Rules: 3-6 observations, 3-6 quotes, 4-8 implications. Be specific — use real numbers/names from the transcript. If irrelevant or empty, return empty arrays.`;
+
+  try{
+    const res=await fetch(PX,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      model:'claude-haiku-4-5-20251001',max_tokens:2000,system:sys,
+      messages:[{role:'user',content:`Extract insights from this discovery transcript:\n\n${st.transcriptRaw.slice(0,8000)}`}]
+    })});
+    const text=await res.text();
+    if(!res.ok){st.transcriptError=`HTTP ${res.status}`;st.transcriptLoading=false;render();return;}
+    const d=JSON.parse(text);
+    if(d.error){st.transcriptError=typeof d.error==='string'?d.error:(d.error.message||'API error');st.transcriptLoading=false;render();return;}
+    const raw=(d.content&&d.content[0]?d.content[0].text:'')||'';
+    const clean=raw.replace(/^```json\n?/,'').replace(/\n?```$/,'').trim();
+    const parsed=JSON.parse(clean);
+    st.rdsObservations=parsed.observations||[];
+    st.rdsQuotes=parsed.quotes||[];
+    st.rdsImplications=parsed.implications||[];
+    st.rdsUseCaseSuggestions=parsed.useCaseSuggestions||[];
+    st.transcriptApplied=false;
+  }catch(e){
+    st.transcriptError=String(e.message||'Parse error');
+  }
+  st.transcriptLoading=false;
+  save();render();
+}
+
+function applyTranscript(){
+  if(!st.rdsObservations.length&&!st.rdsQuotes.length)return;
+  const obsSummary=st.rdsObservations.map(o=>`${o.currentState} — Pain: ${o.painPoint}`).join('\n');
+  if(obsSummary&&!st.sellingFlow.includes('[From transcript]')){
+    st.sellingFlow=(st.sellingFlow?st.sellingFlow+'\n\n':'')+'[From transcript]\n'+obsSummary;
+  }
+  st.rdsUseCaseSuggestions.forEach(k=>{
+    st.useCases=st.useCases.map(u=>u.k===k?{...u,on:true}:u);
+  });
+  st.transcriptApplied=true;
   save();render();
 }
 
@@ -2305,7 +2438,7 @@ function renderTable(rows){
     const sc=r.score||0;
     const scCol=sc>=80?'var(--primary)':sc>=40?'var(--warn)':'var(--danger)';
     const scoreCell=`<div class="score-bar-wrap"><div class="score-bar"><div class="score-bar-fill" style="width:${sc}%;background:${scCol}"></div></div><span class="score-val" style="color:${scCol}">${sc}%</span></div>`;
-    const stepLabel=['About You','Products','How You Sell','Decision Tree','Approvals','Review','Project Plan'][r.step]||'—';
+    const stepLabel=['About You','Products','How You Sell','Transcript','Decision Tree','Approvals','Review','Project Plan'][r.step]||'—';
     const coName=r.company||'Unnamed';
     const initials=(coName.trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('')).toUpperCase()||'?';
     const avatarBg=avatarColor(coName);
@@ -2350,7 +2483,7 @@ function openPanel(id){
   <div class="panel-section-title">Overview</div>
   ${row('Status', r.submitted?'<span class="badge badge-submitted">✓ Submitted</span>':'<span class="badge badge-inprogress">In Progress</span>')}
   ${row('Completion', `<span style="color:${scCol};font-weight:700">${sc}%</span>`)}
-  ${row('Step', ['About You','Products','How You Sell','Decision Tree','Approvals','Review','Project Plan'][r.step]||'—')}
+  ${row('Step', ['About You','Products','How You Sell','Transcript','Decision Tree','Approvals','Review','Project Plan'][r.step]||'—')}
   ${row('Created', fmtDate(r.created_at))}
 </div>
 
