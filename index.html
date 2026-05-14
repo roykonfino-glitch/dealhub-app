@@ -56,8 +56,6 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 .ps.active .pn{background:var(--primary);border-color:var(--primary);color:#0a1525;font-weight:800}
 .ps.done .pn{background:rgba(0,212,170,.2);border-color:rgba(0,212,170,.4);color:var(--primary)}
 .pl{font-size:10px;font-weight:600;color:var(--muted);transition:color .2s}
-.pl-label{display:none}
-.ps.active .pl-label,.ps.done .pl-label{display:inline}
 .pa{color:var(--border2);font-size:9px;margin-left:2px}
 
 /* ── Layout ── */
@@ -624,7 +622,7 @@ function drawProg(){
   document.getElementById('prog').innerHTML=STEPS.map((s,i)=>{
     const cls=i===st.step?'active':i<st.step?'done':'';
     const csmTag=s.csmOnly?` <span style='font-size:9px;background:rgba(0,212,170,.15);color:var(--primary);border-radius:4px;padding:1px 5px;margin-left:4px;font-weight:700'>CSM</span>`:'';
-    return '<div class="ps '+cls+'" onclick="goStep('+i+')" title="'+s.label+'">'+'<span class="pn">'+(i<st.step?'\u2713':i+1)+'</span>'+'<span class="pl">'+s.e+'<span class="pl-label">&nbsp;'+s.label+csmTag+'</span></span>'+(i<STEPS.length-1?'<span class="pa">&#8250;</span>':'')+'</div>';
+    return '<div class="ps '+cls+'" onclick="goStep('+i+')">'+'<span class="pn">'+(i<st.step?'\u2713':i+1)+'</span>'+'<span class="pl">'+s.e+' '+s.label+csmTag+'</span>'+(i<STEPS.length-1?'<span class="pa">&#8250;</span>':'')+'</div>';
   }).join('');
 }
 function drawFooter(){
