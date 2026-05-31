@@ -1,0 +1,20 @@
+{
+  "name": "dealhub-output-doc-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for programmatically building DealHub output document templates",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "exceljs": "^4.4.0",
+    "playwright": "^1.59.1",
+    "xlsx": "^0.18.5",
+    "zod": "^4.4.3"
+  }
+}

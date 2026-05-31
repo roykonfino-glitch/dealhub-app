@@ -1,0 +1,10 @@
+node_modules/
+session*.json
+.account_creds.json
+.account_token
+captured*.json
+endpoint_summary.json
+rules_*.json
+sv_*.json
+*.xlsx
+*.pdf
