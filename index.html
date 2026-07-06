@@ -507,7 +507,9 @@ function freshSt(){return{
   csm:'',
   docGenerating:false,docError:'',docStatus:'',lastDocHtml:'',lastDocRaw:'',planLoading:false,planError:'',projectPlan:[],
   docVersions:[], // [{id, versionNumber, raw, html, createdAt}] — every generate/regenerate appends, never overwrites
-  comments:[],    // [{id, section, author, text, createdAt}] — section = index into DOC_SECTIONS
+  comments:[],    // [{id, section, author, text, createdAt, resolved}] — section = index into DOC_SECTIONS
+  planVersions:[], // [{id, versionNumber, tasks, createdAt}] — snapshot of st.projectPlan taken each regenerate
+  frozen:false,frozenAt:null,frozenBy:'', // soft "stop accidental edits" toggle — not real access control
   mmGenerating:false,mmError:'',
   // import / auto-generate
   importLoading:false,importError:'',importFile:'',importDone:false,
@@ -618,11 +620,28 @@ function render(){
   try{ drawFooter(); }catch(e){ console.error('footer:',e); }
   try{ drawTips(); }catch(e){ console.error('tips:',e); }
   try{ save(); }catch(e){ console.error('save error:',e); }
-  // Auto-trigger generation on first arrival at Review (step 6) and Plan (step 7)
-  if(st.step===7&&!st.submitted&&!st.docGenerating&&!st.lastDocHtml&&!st.autoGenDocTriggered){
+  // Freeze = a shared stop-accidental-edits switch (toggleFreeze()), NOT real per-user
+  // access control — this app has no auth. Disables every data-entry control and primary
+  // (mutating) button inside #content; secondary/nav buttons (View, Back, Continue) and the
+  // Unfreeze button itself (class="btn", not "btn-p") stay clickable.
+  if(st.frozen){
+    try{
+      const el=document.getElementById('content');
+      if(el){
+        const banner=document.createElement('div');
+        banner.style.cssText='background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.35);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#d97706;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap';
+        banner.innerHTML='<span>🔒 Frozen'+(st.frozenBy?' by '+esc(st.frozenBy):'')+(st.frozenAt?' on '+new Date(st.frozenAt).toLocaleString():'')+' — inputs are locked.</span><button class="btn btn-sm" onclick="toggleFreeze()">🔓 Unfreeze</button>';
+        el.insertBefore(banner,el.firstChild);
+        el.querySelectorAll('input,select,textarea,button.btn-p,button.btn-ai').forEach(x=>{x.disabled=true;});
+      }
+    }catch(e){console.error('freeze banner error:',e);}
+  }
+  // Auto-trigger generation on first arrival at Review (step 6) and Plan (step 7) — skip
+  // while frozen so the freeze can't be bypassed by just revisiting the step.
+  if(st.step===7&&!st.submitted&&!st.frozen&&!st.docGenerating&&!st.lastDocHtml&&!st.autoGenDocTriggered){
     st.autoGenDocTriggered=true;setTimeout(genDoc,800);
   }
-  if(st.step===8&&!st.submitted&&!st.planLoading&&!(st.projectPlan&&st.projectPlan.length)&&!st.autoGenPlanTriggered){
+  if(st.step===8&&!st.submitted&&!st.frozen&&!st.planLoading&&!(st.projectPlan&&st.projectPlan.length)&&!st.autoGenPlanTriggered){
     st.autoGenPlanTriggered=true;setTimeout(genProjectPlan,800);
   }
 }
@@ -1468,9 +1487,14 @@ ${en.length?`<div style="margin-bottom:20px">
 </div>`:''}
 
 <div class="hr"></div>
-<div style="margin-bottom:16px">
-  <label class="lbl">Your DealHub CSM / point of contact <span style="color:var(--muted);font-weight:400">(optional — for the cover page)</span></label>
-  <input class="inp" placeholder="e.g. Sarah Johnson — sarah@dealhub.io" value="${esc(st.csm)}" oninput="st.csm=this.value;save()" style="max-width:380px">
+<div style="margin-bottom:16px;display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px">
+  <div>
+    <label class="lbl">Your DealHub CSM / point of contact <span style="color:var(--muted);font-weight:400">(optional — for the cover page)</span></label>
+    <input class="inp" placeholder="e.g. Sarah Johnson — sarah@dealhub.io" value="${esc(st.csm)}" oninput="st.csm=this.value;save()" style="max-width:380px">
+  </div>
+  <button class="btn btn-sm" onclick="toggleFreeze()" title="${st.frozen?'Anyone with the edit link can unfreeze — this is not real access control, just a stop-accidental-edits switch.':'Locks every step until unfrozen — a reminder switch, not real access control.'}">
+    ${st.frozen?'🔓 Unfreeze':'🔒 Freeze this discovery'}
+  </button>
 </div>
 
 <div class="g2">
@@ -1505,7 +1529,10 @@ ${en.length?`<div style="margin-bottom:20px">
   <span style="font-size:18px;flex-shrink:0">💬</span>
   <div style="flex:1">
     <p style="font-size:12px;color:var(--muted);line-height:1.65;margin-bottom:8px"><strong style="color:var(--text)">What happens next?</strong> Your DealHub CSM receives the design document and will schedule a review call within 2 business days to confirm the configuration plan before build begins. Your progress is auto-saved.</p>
-    <button class="btn btn-sm" onclick="copyMyLink()" style="font-size:11px;background:var(--card2)">🔗 Copy link to resume this form</button>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn btn-sm" onclick="copyMyLink()" style="font-size:11px;background:var(--card2)">🔗 Copy edit link</button>
+      ${st.lastDocHtml?`<button class="btn btn-sm" onclick="copyReviewLink()" style="font-size:11px;background:var(--card2)">🔗 Copy client review link</button>`:''}
+    </div>
   </div>
 </div>
 </div>`;
@@ -1542,6 +1569,21 @@ function startOver(){
   showAdvUC=false;
   document.getElementById('coInp').value='';
   render();
+}
+
+// A shared on/off switch anyone with the edit link can flip — NOT real per-user access
+// control (this app has no auth). It exists so an approved discovery isn't accidentally
+// edited afterward; render() enforces it by disabling every input once frozen.
+function toggleFreeze(){
+  if(st.frozen){
+    st.frozen=false;st.frozenAt=null;st.frozenBy='';
+  }else{
+    const name=(prompt('Your name (shown on the freeze banner):',getCommenterName())||'').trim();
+    if(!name)return;
+    try{localStorage.setItem('dh_commenter_name',name);}catch(e){/* */}
+    st.frozen=true;st.frozenAt=Date.now();st.frozenBy=name;
+  }
+  save();render();
 }
 
 // ── FILE HANDLING ───────────────────────────────────────────────────────────
@@ -1604,7 +1646,11 @@ async function analyseProducts(){
   const familyCol=st.colMap.family||st.colMap.type||'';
   const families=familyCol?[...new Set(st.skus.map(s=>s[familyCol]).filter(Boolean))].slice(0,8):[];
   const sample=st.skus.slice(0,30).map(s=>Object.values(s).filter(v=>v&&v!=='id').slice(0,5).join(' | ')).join('\n');
-  const sys=`You are a DealHub CPQ architect. Analyse this product catalog. Write 2-3 sentences: number of product families (list them by name if detectable), primary pricing model(s), billing types (one-time vs recurring). End with one specific sentence about what question group structure this suggests for DealHub. Plain prose only.`;
+  const sys=`You are a DealHub CPQ architect. Analyse this product catalog. Write 2-3 sentences: number of product families (list them by name if detectable), primary pricing model(s), billing types (one-time vs recurring). End with one specific sentence about what question group structure this suggests for DealHub.
+Then, ONLY if applicable, add up to 2 short flag sentences (skip entirely if neither applies — do not force a flag that isn't there):
+- Bundle flag: if any SKU name/description suggests a packaged/suite offering (words like "Suite", "Bundle", "Package", or a single price covering what reads as multiple components), name it and note it should be modelled as a DealHub Bundle, not a flat product.
+- Volume/tiered pricing flag: if the data suggests pricing that changes by quantity or volume (tier language, breakpoints, "per additional unit" patterns), note it should be modelled as a DealHub Discount Table, not a manual per-question field.
+Plain prose only, no markdown, no headers.`;
   try{
     const res=await fetch(PX,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:200,system:sys,messages:[{role:'user',content:`${st.skuCount} SKUs. Detected families: ${families.join(', ')||'unclear'}.\n${sample}`}]})});
     const d=await res.json();
@@ -2091,6 +2137,19 @@ function docVersionHtml(){
 }
 function getCommenterName(){try{return localStorage.getItem('dh_commenter_name')||''}catch(e){return '';}}
 
+// Which of the 8 fixed sections read differently between two version HTML strings — cheap
+// "what changed" signal without a real text-diff library. Relies on the same `.section`
+// DOM contract the genDoc() sys prompt enforces (see DOC_SECTIONS).
+function diffSectionsChanged(prevHtml,curHtml){
+  const changed=new Set();
+  try{
+    const a=Array.from(new DOMParser().parseFromString(prevHtml,'text/html').querySelectorAll('.section')).map(s=>(s.textContent||'').trim());
+    const b=Array.from(new DOMParser().parseFromString(curHtml,'text/html').querySelectorAll('.section')).map(s=>(s.textContent||'').trim());
+    for(let i=0;i<Math.max(a.length,b.length);i++)if((a[i]||'')!==(b[i]||''))changed.add(i);
+  }catch(e){/* leave changed empty on any parse failure */}
+  return changed;
+}
+
 function renderDocViewer(versionNumber){
   document.getElementById('prog').innerHTML='';
   document.getElementById('footer').innerHTML='';
@@ -2102,6 +2161,8 @@ function renderDocViewer(versionNumber){
     return;
   }
   docViewerVersion=v.versionNumber;
+  const prevV=list.find(x=>x.versionNumber===v.versionNumber-1);
+  docViewerChangedSections=prevV?diffSectionsChanged(prevV.html,v.html):new Set();
   const co=st.co||'Client';
   const backUrl=`${window.location.origin}${window.location.pathname}?id=${st.dbId}`;
   // Keep the URL's ?v= in sync so refreshing/sharing stays on the version being viewed.
@@ -2112,15 +2173,18 @@ function renderDocViewer(versionNumber){
   const switcher=list.length>1?`<select class="sel" style="font-size:11px;width:auto;display:inline-block" onchange="renderDocViewer(Number(this.value))">
       ${list.slice().reverse().map(x=>`<option value="${x.versionNumber}"${x.versionNumber===v.versionNumber?' selected':''}>v${x.versionNumber} · ${new Date(x.createdAt).toLocaleDateString()}</option>`).join('')}
     </select>`:`v${v.versionNumber}`;
+  const changedLine=docViewerChangedSections.size?`<div style="font-size:11px;color:#f97316;margin-top:2px">● Changed since v${v.versionNumber-1}: ${[...docViewerChangedSections].sort((x,y)=>x-y).map(i=>esc(DOC_SECTIONS[i])).join(', ')}</div>`:'';
 
   el.innerHTML=`<div class="card" style="padding:16px 18px">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
       <div>
         <div style="font-size:15px;font-weight:800">${esc(co)} — Design Document</div>
         <div style="font-size:11px;color:var(--muted);margin-top:2px">Viewing ${switcher}</div>
+        ${changedLine}
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         <a href="${esc(backUrl)}" class="btn btn-sm" style="text-decoration:none">← Back to form</a>
+        <button class="btn btn-sm" onclick="copyReviewLink()">🔗 Copy client review link</button>
         <button id="pdfBtn" class="btn btn-sm" onclick="downloadDocPDF(docVersionHtml(),'pdfBtn')">⬇️ PDF</button>
         <button class="btn btn-sm" onclick="downloadDoc(docVersionHtml())">⬇️ .html</button>
       </div>
@@ -2138,18 +2202,27 @@ function renderDocViewer(versionNumber){
   if(frame)frame.srcdoc=v.html;
 }
 
+// Sections that differ from the previous version — set by renderDocViewer() via
+// diffSectionsChanged(); read here to draw the "● changed" marker on section titles.
+let docViewerChangedSections=new Set();
+
 function renderCommentSection(i,title){
   const list=(st.comments||[]).filter(c=>c.section===i).sort((a,b)=>a.createdAt-b.createdAt);
+  const unresolved=list.filter(c=>!c.resolved);
   const open=openCommentSections.has(i);
+  const changed=docViewerChangedSections.has(i);
   return `<div style="border:1px solid var(--border2);border-radius:8px;padding:10px 12px;margin-bottom:8px">
     <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="toggleCommentSection(${i})">
-      <span style="font-size:12px;font-weight:700">${i+1}. ${esc(title)}</span>
-      <span style="font-size:11px;color:var(--muted)">${list.length?list.length+' comment'+(list.length>1?'s':''):'No comments'} ${open?'▴':'▾'}</span>
+      <span style="font-size:12px;font-weight:700">${i+1}. ${esc(title)} ${changed?'<span style="color:#f97316" title="Changed since the previous version">● changed</span>':''}</span>
+      <span style="font-size:11px;color:var(--muted)">${unresolved.length?unresolved.length+' comment'+(unresolved.length>1?'s':''):(list.length?'All resolved':'No comments')} ${open?'▴':'▾'}</span>
     </div>
     <div id="csec-${i}" style="display:${open?'block':'none'};margin-top:10px">
-      ${list.map(c=>`<div style="background:var(--card2);border-radius:6px;padding:8px 10px;margin-bottom:6px">
-        <div style="font-size:11px;font-weight:700">${esc(c.author)} <span style="color:var(--muted);font-weight:400">· ${new Date(c.createdAt).toLocaleString()}</span></div>
-        <div style="font-size:12px;margin-top:3px;white-space:pre-wrap">${esc(c.text)}</div>
+      ${list.map(c=>`<div style="background:var(--card2);border-radius:6px;padding:8px 10px;margin-bottom:6px${c.resolved?';opacity:.55':''}">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+          <div style="font-size:11px;font-weight:700">${esc(c.author)} <span style="color:var(--muted);font-weight:400">· ${new Date(c.createdAt).toLocaleString()}${c.resolved?' · resolved':''}</span></div>
+          <button class="btn btn-sm" style="font-size:9px;padding:2px 7px;flex-shrink:0" onclick="toggleCommentResolved('${c.id}')">${c.resolved?'↺ Reopen':'✓ Resolve'}</button>
+        </div>
+        <div style="font-size:12px;margin-top:3px;white-space:pre-wrap${c.resolved?';text-decoration:line-through':''}">${esc(c.text)}</div>
       </div>`).join('')||'<div style="font-size:11px;color:var(--muted);margin-bottom:8px">Be the first to comment on this section.</div>'}
       <div style="display:flex;gap:6px;margin-top:8px">
         <input id="cname-${i}" class="inp" placeholder="Your name" value="${esc(getCommenterName())}" style="max-width:140px;font-size:11px" oninput="try{localStorage.setItem('dh_commenter_name',this.value)}catch(e){}">
@@ -2164,6 +2237,22 @@ function toggleCommentSection(i){
   const panels=document.getElementById('commentPanels');
   if(panels)panels.innerHTML=DOC_SECTIONS.map((t,idx)=>renderCommentSection(idx,t)).join('');
 }
+// Shared by addComment/toggleCommentResolved — re-fetch the latest comments before mutating,
+// a cheap guard against clobbering a concurrent commenter's post (syncToDb is a full-row
+// upsert with no server-side merge).
+async function refreshCommentsFromDb(){
+  try{
+    const fresh=await sbLoad(st.dbId);
+    if(fresh&&fresh.state&&Array.isArray(fresh.state.comments))st.comments=fresh.state.comments;
+  }catch(e){/* */}
+}
+async function toggleCommentResolved(commentId){
+  await refreshCommentsFromDb();
+  st.comments=(st.comments||[]).map(c=>c.id===commentId?{...c,resolved:!c.resolved}:c);
+  const panels=document.getElementById('commentPanels');
+  if(panels)panels.innerHTML=DOC_SECTIONS.map((t,idx)=>renderCommentSection(idx,t)).join('');
+  await syncToDb(st.submitted);
+}
 async function addComment(i){
   const nameInp=document.getElementById('cname-'+i);
   const textInp=document.getElementById('ctext-'+i);
@@ -2172,13 +2261,8 @@ async function addComment(i){
   if(!author){alert('Enter your name first.');nameInp&&nameInp.focus();return;}
   if(!text)return;
   try{localStorage.setItem('dh_commenter_name',author);}catch(e){/* */}
-  // Re-fetch the latest comments before appending — cheap guard against clobbering a
-  // concurrent commenter's post, since syncToDb is a full-row upsert with no server-side merge.
-  try{
-    const fresh=await sbLoad(st.dbId);
-    if(fresh&&fresh.state&&Array.isArray(fresh.state.comments))st.comments=fresh.state.comments;
-  }catch(e){/* */}
-  st.comments=[...(st.comments||[]),{id:uid()+uid(),section:i,author,text,createdAt:Date.now()}];
+  await refreshCommentsFromDb();
+  st.comments=[...(st.comments||[]),{id:uid()+uid(),section:i,author,text,createdAt:Date.now(),resolved:false}];
   openCommentSections.add(i);
   const panels=document.getElementById('commentPanels');
   if(panels)panels.innerHTML=DOC_SECTIONS.map((t,idx)=>renderCommentSection(idx,t)).join('');
@@ -2385,6 +2469,15 @@ ${!hasPlan?`<div style="background:linear-gradient(135deg,rgba(0,212,170,.1),rgb
   <button class="btn btn-sm" onclick="printPlan()">🖨️ Print / PDF</button>
   ${st.planError?`<span style="font-size:11px;color:#e53e3e">⚠️ ${esc(st.planError)}</span>`:''}
 </div>
+${st.planVersions&&st.planVersions.length?`<div style="margin-bottom:14px">
+  <div class="slbl">Version history (${st.planVersions.length})</div>
+  <div style="display:flex;flex-direction:column;gap:5px;margin-top:6px;max-height:140px;overflow:auto">
+    ${st.planVersions.slice().reverse().map(v=>`<div style="display:flex;align-items:center;justify-content:space-between;background:var(--card2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;font-size:11px">
+      <span>v${v.versionNumber} <span style="color:var(--muted)">· ${new Date(v.createdAt).toLocaleString()} · ${v.tasks.length} tasks</span></span>
+      <button class="btn btn-sm" onclick="printPlan(planVersionTasks(${v.versionNumber}))" style="font-size:10px;padding:3px 9px">View</button>
+    </div>`).join('')}
+  </div>
+</div>`:''}
 ${hasPlan?`<div style="margin-bottom:12px">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
     <div style="font-size:11px;color:var(--muted)">${nDone} complete &nbsp;·&nbsp; ${nWip} in progress &nbsp;·&nbsp; ${total-nDone-nWip} not started</div>
@@ -2411,6 +2504,10 @@ ${timeline}
 }
 
 async function genProjectPlan(){
+  // Snapshot the plan being superseded (if any) — appended to planVersions on success below.
+  // Manual inline edits between regenerations are NOT separately versioned, only each
+  // completed generate/regenerate is — same model as the design doc's versioning.
+  const prevPlan=(st.projectPlan&&st.projectPlan.length)?st.projectPlan:null;
   st.planLoading=true;st.planError='';render();
   const en=st.useCases.filter(u=>u.on);
   const ctx=`Client: ${st.co||'unknown'} | Go-live: ${st.goLive||'TBD'} | CRM: ${st.crm} | Industry: ${st.industry||'unknown'} | Contract: ${st.contractLength||'12'}mo | Products: ${st.productFamilies||'unknown'} | Pricing: ${st.pricingModel||'unknown'} | Use cases: ${en.map(u=>u.n).join(', ')||'none'} | DocuSign: ${en.some(u=>u.k==='docusign')?'Yes':'No'}`;
@@ -2468,6 +2565,9 @@ Tailor task names and notes to the client context provided.`;
       render();
       return;
     }
+    if(prevPlan){
+      st.planVersions=[...(st.planVersions||[]),{id:uid()+uid(),versionNumber:(st.planVersions?st.planVersions.length:0)+1,tasks:prevPlan,createdAt:Date.now()}];
+    }
     st.planLoading=false;save();render();
   }catch(e){
     st.planError=`${e.message||e}`;
@@ -2483,9 +2583,15 @@ function exportPlanXlsx(){
   XLSX.writeFile(wb,`DealHub_Plan_${(st.co||'Client').replace(/\s+/g,'_')}.xlsx`);
 }
 
-function printPlan(){
+// Historical plan snapshot lookup — used by the version-history "View" buttons in S7_Plan().
+function planVersionTasks(versionNumber){
+  const v=(st.planVersions||[]).find(x=>x.versionNumber===versionNumber);
+  return v?v.tasks:st.projectPlan;
+}
+function printPlan(tasksOverride){
+  const tasks=tasksOverride||st.projectPlan;
   const co=st.co||'Client',dt=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
-  const rows=(st.projectPlan||[]).map((r,i)=>`<tr style="${r.milestone?'background:rgba(0,212,170,.08);font-weight:700':i%2===0?'':'background:#f9fafb'}">
+  const rows=(tasks||[]).map((r,i)=>`<tr style="${r.milestone?'background:rgba(0,212,170,.08);font-weight:700':i%2===0?'':'background:#f9fafb'}">
     <td>${r.milestone?'🏁 ':''}${esc(r.phase)}</td><td><strong>${esc(r.task)}</strong></td><td style="color:#6b7280;font-size:11px">${esc(r.notes||'')}</td><td style="text-align:center;color:${r.status==='Complete'?'#166534':r.status==='In Progress'?'#c2410c':'#6b7280'}">${esc(r.status||'Not Started')}</td><td style="text-align:center">${esc(r.owner)}</td><td>${esc(r.start)}</td><td>${esc(r.end)}</td><td>${esc(r.priority)}</td></tr>`).join('');
   const pg=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Project Plan — ${co}</title>
 <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:system-ui,sans-serif;font-size:12px;color:var(--text);padding:40px}
@@ -2507,13 +2613,29 @@ function showToast(msg='✓ Saved'){
   setTimeout(()=>t.classList.remove('show'),2500);
 }
 
+// The EDIT link — full read/write on every answer in the wizard. Same underlying
+// no-auth link as always; kept as its own function so the intent (CSM/edit) is explicit
+// alongside copyReviewLink() (client view + comment). Not a real permission boundary.
 function copyMyLink(){
   // Force an immediate DB sync first so the link always works
-  syncToDb(false);
+  syncToDb(st.submitted);
   const base=window.location.origin+window.location.pathname;
   const link=`${base}?id=${st.dbId}`;
   navigator.clipboard.writeText(link).then(()=>{
-    showToast('🔗 Link copied!');
+    showToast('🔗 Edit link copied!');
+  }).catch(()=>{
+    prompt('Copy this link:',link);
+  });
+}
+// The REVIEW link — opens straight into the doc viewer (?view=doc): read the design doc,
+// switch versions, leave comments. No wizard inputs on this route, so it reads as the
+// "hand this to the client" link even though nothing server-side actually restricts it.
+function copyReviewLink(){
+  syncToDb(st.submitted);
+  const base=window.location.origin+window.location.pathname;
+  const link=`${base}?id=${st.dbId}&view=doc`;
+  navigator.clipboard.writeText(link).then(()=>{
+    showToast('🔗 Client review link copied!');
   }).catch(()=>{
     prompt('Copy this link:',link);
   });
