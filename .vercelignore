@@ -1,0 +1,7 @@
+# This is a single static-HTML app. Ignore EVERYTHING by default and only allow
+# the specific files it actually needs to serve — the Desktop folder this repo
+# lives in also holds unrelated projects, credentials, session cookies, and
+# transcripts that must never be uploaded as part of a deployment.
+*
+!index.html
+!vercel.json
