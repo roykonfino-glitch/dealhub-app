@@ -437,6 +437,13 @@ async function sbLoad(id){
   }catch(e){return null;}
 }
 
+// Fixed section titles — mirrors the EXACT 8 section titles the genDoc() system prompt
+// enforces (see "SECTION NAMES ARE FIXED" below). Comments key off this index, not off
+// parsing the AI-generated HTML, so they stay stable across every regenerated version.
+const DOC_SECTIONS=['Context & The Why','Goals & Success Criteria','Go-To-Market Structure',
+  'Current State: How It Works Today','Products & Pricing','DealHub Configuration Design',
+  'Approval Workflows','Output Documents, DealRoom & Build Sequence'];
+
 const STEPS=[
   {id:'about',      label:'About You',          e:'🏢'},
   {id:'products',   label:'Your Products',      e:'📦'},
@@ -499,6 +506,8 @@ function freshSt(){return{
   // S6
   csm:'',
   docGenerating:false,docError:'',docStatus:'',lastDocHtml:'',lastDocRaw:'',planLoading:false,planError:'',projectPlan:[],
+  docVersions:[], // [{id, versionNumber, raw, html, createdAt}] — every generate/regenerate appends, never overwrites
+  comments:[],    // [{id, section, author, text, createdAt}] — section = index into DOC_SECTIONS
   mmGenerating:false,mmError:'',
   // import / auto-generate
   importLoading:false,importError:'',importFile:'',importDone:false,
@@ -528,7 +537,7 @@ function save(){
   // Debounced Supabase sync — 2s after last keystroke
   clearTimeout(save._t);
   save._t=setTimeout(async ()=>{
-    const ok=await syncToDb(false);
+    const ok=await syncToDb(st.submitted);
     showToast(ok?'✓ Saved to database':'✓ Saved locally');
   },2000);
 }
@@ -689,7 +698,10 @@ function S1(){
 ${st.importError?`<div style="margin-top:8px;font-size:11px;color:#f87171">⚠️ ${esc(st.importError)}</div>`:''}
 </div>`;
 
-  return `${importCard}<div class="card">
+  return `<div style="text-align:center;font-size:11px;color:var(--muted);margin-bottom:14px;letter-spacing:.2px">
+  Built with care by <strong style="color:var(--text2)">Dor</strong> &amp; <strong style="color:var(--text2)">Roy</strong> — thank you for making this possible.
+</div>
+${importCard}<div class="card">
 <div class="ptitle">Tell us about <em>your business</em></div>
 <div class="psub">These answers shape your entire DealHub configuration — they feed directly into the design document your implementation team will use to build.</div>
 
@@ -1467,14 +1479,24 @@ ${en.length?`<div style="margin-bottom:20px">
     <div style="font-size:14px;font-weight:700;margin-bottom:4px">Configuration Design Document</div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.5">Full DealHub spec — question groups, approval matrices, playbook structure, field mapping, build sequence, and UAT checklist.</div>
     <button class="btn btn-p" onclick="genDoc()" ${st.docGenerating?'disabled':''} style="width:100%;justify-content:center;font-size:12px">
-      ${st.docGenerating?'<span style="display:flex;align-items:center;gap:7px"><span class="spin spin-dk" style="width:13px;height:13px;border-width:2.5px"></span>Generating — about 20 seconds…</span>':'🤖 Generate Design Document'}
+      ${st.docGenerating?'<span style="display:flex;align-items:center;gap:7px"><span class="spin spin-dk" style="width:13px;height:13px;border-width:2.5px"></span>Generating — about 20 seconds…</span>':(st.docVersions&&st.docVersions.length?'🔄 Regenerate (new version)':'🤖 Generate Design Document')}
     </button>
     ${st.lastDocHtml?`<div style="display:flex;gap:6px;margin-top:6px">
-      <button id="pdfBtn" class="btn btn-p" onclick="downloadDocPDF()" style="flex:1;justify-content:center;font-size:11px">⬇️ Download PDF</button>
+      <button class="btn" onclick="openDocViewer()" style="flex:1;justify-content:center;font-size:11px">👁️ View &amp; comment</button>
+      <button id="pdfBtn" class="btn btn-p" onclick="downloadDocPDF()" style="flex:1;justify-content:center;font-size:11px">⬇️ PDF</button>
       <button class="btn" onclick="downloadDoc()" style="flex:1;justify-content:center;font-size:11px" title="Download as HTML file">⬇️ .html</button>
     </div>`:''}
     ${st.docStatus?`<div style="margin-top:8px;font-size:10px;color:var(--primary)">⏳ ${esc(st.docStatus)}</div>`:''}
     ${st.docError?`<div style="margin-top:8px;font-size:10px;color:#f87171">⚠️ ${esc(st.docError)}</div>`:''}
+    ${st.docVersions&&st.docVersions.length?`<div style="margin-top:14px">
+      <div class="slbl">Version history (${st.docVersions.length})</div>
+      <div style="display:flex;flex-direction:column;gap:5px;margin-top:6px;max-height:160px;overflow:auto">
+        ${st.docVersions.slice().reverse().map(v=>`<div style="display:flex;align-items:center;justify-content:space-between;background:var(--card2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;font-size:11px">
+          <span>v${v.versionNumber} <span style="color:var(--muted)">· ${new Date(v.createdAt).toLocaleString()}</span></span>
+          <button class="btn btn-sm" onclick="openDocViewer(${v.versionNumber})" style="font-size:10px;padding:3px 9px">View</button>
+        </div>`).join('')}
+      </div>
+    </div>`:''}
   </div>
 
 </div>
@@ -1496,10 +1518,23 @@ function renderDone(){
   <div style="width:68px;height:68px;border-radius:50%;background:var(--accent);border:1px solid rgba(61,232,176,.3);display:flex;align-items:center;justify-content:center;font-size:30px;margin-bottom:16px">🎉</div>
   <div style="font-size:24px;font-weight:800;margin-bottom:8px">Discovery complete!</div>
   <p style="font-size:13px;color:var(--muted);max-width:400px;line-height:1.7;margin-bottom:24px">Thank you. Your DealHub team has everything they need to begin configuration. Expect a follow-up within <strong style="color:var(--text)">2 business days</strong>.</p>
-  <button class="btn btn-p" onclick="startOver()">Start New Discovery</button>
+  <div style="display:flex;gap:10px">
+    <button class="btn" onclick="editAnswers()">✏️ Edit answers</button>
+    <button class="btn btn-p" onclick="startOver()">Start New Discovery</button>
+  </div>
 </div></div>`;
   document.getElementById('footer').innerHTML='';
   document.getElementById('prog').innerHTML='';
+}
+// Reopen the wizard on a submitted discovery — nothing is reset, so prior answers,
+// generated document versions, and comments are all still there. Regenerating the doc
+// from here appends a new version rather than overwriting the last one.
+function editAnswers(){
+  st.submitted=false;
+  st.step=7; // Review & Generate
+  save();
+  render();
+  window.scrollTo(0,0);
 }
 function startOver(){
   clearSave();
@@ -1602,7 +1637,7 @@ function readAsBase64(file){
 async function extractFileText(name, buf){
   const ext=(name.split('.').pop()||'').toLowerCase();
   if(['xlsx','xls','csv'].includes(ext)){
-    const wb=XLSX.read(buf,{type:'array'});
+    const wb=XLSX.read(new Uint8Array(buf),{type:'array'});
     const lines=[];
     wb.SheetNames.forEach(sn=>{
       const ws=wb.Sheets[sn];
@@ -1843,17 +1878,32 @@ ${st.pricingCalcAnalysis?`PRICING STRUCTURE ANALYSIS (use this to enrich Product
 8. Exact product names — use the spelling and casing from the data verbatim.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-DEALHUB EXPERTISE — use this to write accurate build direction:
+DEALHUB EXPERTISE — use this to write accurate build direction (grounded in the real DealHub product model, not assumptions):
 Standard QGs every playbook needs:
 - [GQ]: Opportunity Type (CRM Pull, Read Only — always first), Start Date (Date - Proposal Date), Duration (Numeric - Answer, Default: ${st.contractLength||'12'}, Stepping: 12), End Date (Date - Formula: ADD_MONTHS([GQ.Start_Date],[GQ.Duration]), Read Only), Payment Terms (Text - List), Auto Renewal (Text - Radio)
 - [Billing_and_Terms]: Payment Terms (Text-List), Payment Method (Text-List: Invoice/Auto-Debit), Net Days (Text-List), MSA (Text-Radio: Yes/No)
 - [Billing_Contact]: Billing Contact Name, Email, Phone — all CRM Pull, Read Only
+- [Terms_and_Conditions]: its OWN canonical question group (a fixed 7-question set) — never fold T&C questions into Billing_and_Terms, they are separate groups.
 - Product QGs: one per product family. ID = EXACT family name from SKU data in brackets e.g. [Platform], [Add_Ons]. Per-user pricing → add Seat Qty (Numeric-Answer, Min 1, Default 1, Stepping 1). Tiered → add Quantity (Numeric-Answer) + Tier (Text-List).
+- Bundles: if SKU names/descriptions suggest packaged offerings (e.g. "Suite", "Package", "Bundle", a fixed price covering several SKUs), note that DealHub models this as a Bundle (fixed-price across children, or a roll-up summary) rather than a flat product — flag it as a build note, don't restructure the catalog yourself.
+- Subscriptions / Renewals — when renewals or an existing-subscription pull is in scope, the canonical pattern is a CRM-pulled REPEATABLE group: the manual "Select and add products" button is hidden, the group is linked to a saved CRM query (not manually entered), and the second role's Start Date/Duration default FROM the first role so they are never blank. This is the pattern to describe, not a generic settings group.
 - [Multi_System_Settings] — add ONLY if multi-year use case enabled: Ordinal_Calc, Ordinal_Start_Date, Ordinal_Duration, Ordinal_End_Date (all Hidden)
 - [Partner] — add ONLY if partner use case enabled: Partner_Type (Text-List), Deal_Registration (Text-Radio)
 - [Trial_Settings] — add ONLY if pilot/trial use case enabled: Trial_Duration (Numeric-Answer), Trial_End_Date (Date-Formula)
-General Workflow: hierarchical approval by role/threshold from discount matrix — escalates automatically when rep exceeds their limit.
-Rule-Based Workflow: event-condition → fixed approver routing. Not role-based. Use for special conditions (product type, deal type, terms).
+
+PRICING — two distinct levers, never conflate them:
+- Discount Tables: tier-based AUTOMATIC discounting off list price (LINEAR or PROGRESSIVE tiers, PERCENTAGE or FIXED amount — e.g. "0–10 units → 5%, 11–50 → 10%"). This is what applies when a client describes volume/quantity pricing that kicks in automatically — it has nothing to do with who approves a deal.
+- Approval Workflows (below): govern who must approve a discount a REP is requesting beyond their own limit — the approval routing, not the discount calculation.
+
+Approval Workflows vs Validation Rules — three distinct mechanisms, do not merge them:
+- General Workflow: hierarchical approval by role/threshold from the discount matrix — escalates automatically when a rep exceeds their limit.
+- Rule-Based Workflow: event-condition → fixed approver routing. Not role-based. Use for special conditions (product type, deal type, terms).
+- Validation Rule: a hard block-or-warn check enforced at quote submission with NO approver involved (e.g. "Term cannot exceed 36 months for new logos", "Discount requires a signed order form on file"). If an approval edge case describes a rule that stops or warns rather than routes to a person, it is a Validation Rule — call it out as one, separate from the workflow tables.
+
+Output Documents:
+- Order Form: the canonical Generic Order Form has a 6-part body, a native pricing table, and a signature block — describe build direction against that shape.
+- DealRoom: assembled from the client's OWN website (brand and copy are scraped from the URL, not hand-built) — only recommend it once a brand URL or brand analysis is present in context; otherwise flag as pending.
+- Baseline build: DealHub playbooks are typically built by customizing a canonical default SaaS scaffold (base version + core groups + filter framework + product catalog + Sales Motion/ARR attributes + Terms & Conditions + Order Form) rather than being built from a blank slate — frame the build sequence as customizing FROM that baseline.
 
 HTML FORMAT — CRITICAL: output raw HTML only. Do NOT wrap in markdown code fences (no \`\`\`html or \`\`\`). Clean fragment, no html/head/body tags:
 - Section: <div class="section"><div class="section-header"><span class="section-num">N.</span><span class="section-title">Title</span></div>...content...</div>
@@ -1892,11 +1942,11 @@ SECTION INSTRUCTIONS:
 
 5. Products & Pricing — <h2>Price Books / Catalogs in Scope</h2> table: Price Book | Structure & Notes — one row per product family from SKU data. <h2>Pricing Model</h2> paragraph from pricingModel + context. <h2>Product Catalog</h2> full table: SKU Code | Product Name | List Price | Family | Type — EVERY row from SKU SAMPLE exactly, no omissions. <h2>Pricing Nuances</h2> bullets: only nuances in the context (multi-currency, payment terms, multi-year, contract length, etc). Always state the standard contract length.
 
-6. DealHub Configuration Design — This section gives actionable build direction. <h2>Playbook Structure</h2> table: Opportunity Type | Description | Notes — always include "New Business"; add "Renewal" only if renewals/multi-year enabled; add "Partner" only if partners enabled. <h2>Question Groups Overview</h2> table: Question Group | Purpose | Key Fields — list every QG in order: [GQ] first, then one row per product family (using EXACT family names from SKU data), then [Billing_and_Terms], [Billing_Contact], then feature QGs only if those use cases are enabled. <h2>General Questions [GQ]</h2> then a question table: Question | Field Type | Details/Config — list all standard GQ fields. <h2>[FamilyName] Question Group</h2> for EACH product family from SKU data: question table with relevant fields for that family based on pricing model (per-user → Seat Qty; tiered → Quantity + Tier; etc). <h2>Billing & Terms</h2> question table for [Billing_and_Terms] and [Billing_Contact]. If multi-year enabled: add [Multi_System_Settings] sub-section. Include callout-warn: "Successful DealHub architecture balances four pillars — Seller Experience, Buyer Experience, Data Integrity, and Maintainability. Each decision should reflect this balance."
+6. DealHub Configuration Design — This section gives actionable build direction. <h2>Playbook Structure</h2> table: Opportunity Type | Description | Notes — always include "New Business"; add "Renewal" only if renewals/multi-year enabled; add "Partner" only if partners enabled. <h2>Question Groups Overview</h2> table: Question Group | Purpose | Key Fields — list every QG in order: [GQ] first, then one row per product family (using EXACT family names from SKU data), then [Billing_and_Terms], [Terms_and_Conditions] (always its own row, never merged into Billing_and_Terms), [Billing_Contact], then feature QGs only if those use cases are enabled. <h2>General Questions [GQ]</h2> then a question table: Question | Field Type | Details/Config — list all standard GQ fields. <h2>[FamilyName] Question Group</h2> for EACH product family from SKU data: question table with relevant fields for that family based on pricing model (per-user → Seat Qty; tiered → Quantity + Tier; volume/quantity discount described in context → note it as a Discount Table, not a manual field). If any product name/description suggests a packaged or suite offering, add a callout-warn noting it should be modelled as a DealHub Bundle. <h2>Billing & Terms</h2> question table for [Billing_and_Terms], [Terms_and_Conditions] (7 standard questions), and [Billing_Contact]. If renewals/multi-year enabled: add a sub-section describing the Subscriptions/Renewals group as a CRM-pulled repeatable group (manual add button hidden, linked to a saved query, second role's dates defaulting from the first) plus [Multi_System_Settings] if multi-year specifically. Include callout-warn: "Successful DealHub architecture balances four pillars — Seller Experience, Buyer Experience, Data Integrity, and Maintainability. Each decision should reflect this balance."
 
-7. Approval Workflows — <h2>Current State</h2> paragraph from approvalText (if blank, note approvals not yet formally documented). <h2>Known Approval Triggers</h2> bullets from approvalEdge + ruleRows conditions. <h2>General Workflow — Discount Matrix</h2> callout-warn: "General Workflows follow a hierarchical approval structure. Each role has a maximum approval limit; the request escalates automatically when a user exceeds their limit." Then table: Role | Discount Limit | Approver — exact values from DISCOUNT MATRIX, or callout-warn [ACTION REQUIRED] if empty. <h2>Rule-Based Workflows</h2> callout-warn: "Rule-Based Workflows route based on a specific condition regardless of submitter role — the condition alone determines the approver." Then table: Condition | Step 1 Approver | Step 2 Approver — from RULE-BASED WORKFLOWS, or [ACTION REQUIRED] if empty. If transcript quotes about approvals exist, include quote callout.
+7. Approval Workflows — <h2>Current State</h2> paragraph from approvalText (if blank, note approvals not yet formally documented). <h2>Known Approval Triggers</h2> bullets from approvalEdge + ruleRows conditions. <h2>General Workflow — Discount Matrix</h2> callout-warn: "General Workflows follow a hierarchical approval structure. Each role has a maximum approval limit; the request escalates automatically when a user exceeds their limit." Then table: Role | Discount Limit | Approver — exact values from DISCOUNT MATRIX, or callout-warn [ACTION REQUIRED] if empty. <h2>Rule-Based Workflows</h2> callout-warn: "Rule-Based Workflows route based on a specific condition regardless of submitter role — the condition alone determines the approver." Then table: Condition | Step 1 Approver | Step 2 Approver — from RULE-BASED WORKFLOWS, or [ACTION REQUIRED] if empty. <h2>Validation Rules</h2> — scan approvalEdge and any rule descriptions in context for hard block-or-warn conditions that name NO approver (e.g. a term-length cap, a required document, a minimum price floor). List those as bullets under this sub-section, distinct from the approval tables above — these are enforced at submission with no routing. If none are described, omit this sub-section entirely rather than inventing one. If transcript quotes about approvals exist, include quote callout.
 
-8. Output Documents, DealRoom & Build Sequence — <h2>Current Documents Sent to Customers</h2> bullets from currentQuote + outputDocFiles. <h2>Future State — DealHub Output Document</h2> paragraph describing what the DealHub output doc should contain and how it replaces current docs. <h2>DealRoom</h2>: if brandUrl or brandAnalysis provided, mention it; otherwise note "DealRoom brand setup TBD — brand guidelines to be shared before build phase". <h2>Recommended Build Sequence</h2> table: Step # | Task | Owner (DH/Client) | Notes — 10 steps: 1-CRM integration → 2-Product catalog import → 3-[GQ] config → 4-Product QGs (one step per family, using exact family names) → then [Billing_and_Terms] → [Billing_Contact] → Feature QGs if applicable → Approval workflows → Output doc templates → DealRoom → UAT → Go-live. End with <h2>Risks & Open Questions</h2> table: Risk / Flag | Detail | Recommended Action — 4–6 rows grounded in real gaps from the context.`;
+8. Output Documents, DealRoom & Build Sequence — <h2>Current Documents Sent to Customers</h2> bullets from currentQuote + outputDocFiles. <h2>Future State — DealHub Output Document</h2> paragraph describing the DealHub Order Form (its canonical shape: a 6-part body, native pricing table, and signature block) and how it replaces current docs. <h2>DealRoom</h2>: if brandUrl or brandAnalysis provided, mention that the DealRoom is assembled directly from that site's brand and copy; otherwise note "DealRoom brand setup TBD — a company URL is needed before build so brand/copy can be pulled in automatically". <h2>Recommended Build Sequence</h2> table: Step # | Task | Owner (DH/Client) | Notes — 10 steps: 1-CRM integration → 2-Product catalog import → 3-[GQ] config → 4-Product QGs (one step per family, using exact family names) → 5-[Terms_and_Conditions] → then [Billing_and_Terms] → [Billing_Contact] → Feature QGs if applicable → Approval workflows & validation rules → Output doc templates → DealRoom → UAT → Go-live. Frame step 1-4 as customizing the standard DealHub default SaaS baseline, not building from a blank slate. End with <h2>Risks & Open Questions</h2> table: Risk / Flag | Detail | Recommended Action — 4–6 rows grounded in real gaps from the context.`;
 
   const DOC_MODEL='claude-haiku-4-5-20251001';
   const RETRY_WAIT=65000; // 65s clears the 1-min rate limit window
@@ -1947,33 +1997,48 @@ SECTION INSTRUCTIONS:
     const c3=parseCall(text3,'Part 3');
     const docContent=c1+'\n'+c2+'\n'+c3;
     st.docGenerating=false;st.docError='';st.docStatus='';
-    st.lastDocRaw=docContent;
-    st.lastDocHtml=buildDocPage(docContent,false);
+    // Append a new version — never overwrite. Every past draft stays reachable from the
+    // version history list and from the doc viewer's version switcher.
+    const verEntry={id:uid()+uid(),versionNumber:(st.docVersions?st.docVersions.length:0)+1,
+      raw:docContent,html:buildDocPage(docContent,false),createdAt:Date.now()};
+    st.docVersions=[...(st.docVersions||[]),verEntry];
+    st.lastDocRaw=verEntry.raw;
+    st.lastDocHtml=verEntry.html;
     save();render();
-    const w=window.open('','_blank');
-    if(w){w.document.write(st.lastDocHtml);w.document.close();}
-    else downloadDoc();
+    await syncToDb(st.submitted); // immediate, not the 2s-debounced save() — the new tab needs this NOW
+    openDocViewer(verEntry.versionNumber);
   }catch(e){st.docError='Could not reach AI: '+e.message;st.docGenerating=false;render();}
 }
 
-function downloadDoc(){
-  if(!st.lastDocHtml){alert('Generate the design document first.');return;}
+// Opens the shareable, reloadable doc viewer in a new tab (?id=<dbId>&view=doc&v=<n>).
+// Replaces the old window.open('','_blank')+document.write pattern, which produced a
+// blank-URL tab that couldn't be reloaded, bookmarked, or shared for commenting.
+function openDocViewer(versionNumber){
+  const base=window.location.origin+window.location.pathname;
+  const url=`${base}?id=${st.dbId}&view=doc${versionNumber?('&v='+versionNumber):''}`;
+  window.open(url,'_blank');
+}
+
+function downloadDoc(htmlOverride){
+  const html=htmlOverride||st.lastDocHtml;
+  if(!html){alert('Generate the design document first.');return;}
   const co=(st.co||'Client').replace(/\s+/g,'_');
-  const b=new Blob([st.lastDocHtml],{type:'text/html'});
+  const b=new Blob([html],{type:'text/html'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(b);
   a.download=`DealHub_Design_Doc_${co}_${new Date().toISOString().slice(0,10)}.html`;
   a.click();
 }
 
-function downloadDocPDF(){
-  if(!st.lastDocHtml){alert('Generate the design document first.');return;}
-  const btn=document.getElementById('pdfBtn');
+function downloadDocPDF(htmlOverride,btnId){
+  const html=htmlOverride||st.lastDocHtml;
+  if(!html){alert('Generate the design document first.');return;}
+  const btn=document.getElementById(btnId||'pdfBtn');
   const origHtml=btn?btn.innerHTML:'';
   if(btn){btn.innerHTML='⏳ Building PDF…';btn.disabled=true;}
 
   // Parse the full HTML doc to extract styles + body content
-  const parsed=new DOMParser().parseFromString(st.lastDocHtml,'text/html');
+  const parsed=new DOMParser().parseFromString(html,'text/html');
   const css=Array.from(parsed.querySelectorAll('style')).map(s=>s.textContent).join('\n');
 
   const styleEl=document.createElement('style');
@@ -2002,6 +2067,123 @@ function downloadDocPDF(){
   }).from(container).save().then(cleanup).catch(err=>{cleanup();alert('PDF error: '+err.message);});
 }
 
+// ── DOC VIEWER + PER-SECTION COMMENTS ───────────────────────────────────────
+// Reached via ?id=<dbId>&view=doc[&v=N] (see openDocViewer / initApp). A real, reloadable,
+// shareable page — not a blank window.open+document.write tab — so a version can be
+// bookmarked and commented on by anyone with the link.
+let docViewerVersion=null;   // version number currently shown in the iframe
+const openCommentSections=new Set(); // which of the 8 section accordions are expanded
+
+function getDocVersionsList(){
+  // Legacy discoveries saved before docVersions existed only have lastDocHtml — synthesize
+  // a single v1 entry from it so the viewer still works for old links.
+  if(st.docVersions&&st.docVersions.length)return st.docVersions;
+  return st.lastDocHtml?[{id:'legacy',versionNumber:1,raw:st.lastDocRaw,html:st.lastDocHtml,createdAt:Date.now()}]:[];
+}
+function resolveDocVersion(versionNumber){
+  const list=getDocVersionsList();
+  if(!list.length)return null;
+  return (versionNumber&&list.find(v=>v.versionNumber===versionNumber))||list[list.length-1];
+}
+function docVersionHtml(){
+  const v=resolveDocVersion(docViewerVersion);
+  return v?v.html:st.lastDocHtml;
+}
+function getCommenterName(){try{return localStorage.getItem('dh_commenter_name')||''}catch(e){return '';}}
+
+function renderDocViewer(versionNumber){
+  document.getElementById('prog').innerHTML='';
+  document.getElementById('footer').innerHTML='';
+  const list=getDocVersionsList();
+  const v=resolveDocVersion(versionNumber);
+  const el=document.getElementById('content');
+  if(!v){
+    el.innerHTML='<div class="card" style="padding:40px;text-align:center;color:var(--muted)">No design document has been generated for this discovery yet.</div>';
+    return;
+  }
+  docViewerVersion=v.versionNumber;
+  const co=st.co||'Client';
+  const backUrl=`${window.location.origin}${window.location.pathname}?id=${st.dbId}`;
+  // Keep the URL's ?v= in sync so refreshing/sharing stays on the version being viewed.
+  try{
+    const u=new URL(window.location.href);u.searchParams.set('v',v.versionNumber);
+    window.history.replaceState(null,'',u);
+  }catch(e){/* */}
+  const switcher=list.length>1?`<select class="sel" style="font-size:11px;width:auto;display:inline-block" onchange="renderDocViewer(Number(this.value))">
+      ${list.slice().reverse().map(x=>`<option value="${x.versionNumber}"${x.versionNumber===v.versionNumber?' selected':''}>v${x.versionNumber} · ${new Date(x.createdAt).toLocaleDateString()}</option>`).join('')}
+    </select>`:`v${v.versionNumber}`;
+
+  el.innerHTML=`<div class="card" style="padding:16px 18px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+      <div>
+        <div style="font-size:15px;font-weight:800">${esc(co)} — Design Document</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Viewing ${switcher}</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <a href="${esc(backUrl)}" class="btn btn-sm" style="text-decoration:none">← Back to form</a>
+        <button id="pdfBtn" class="btn btn-sm" onclick="downloadDocPDF(docVersionHtml(),'pdfBtn')">⬇️ PDF</button>
+        <button class="btn btn-sm" onclick="downloadDoc(docVersionHtml())">⬇️ .html</button>
+      </div>
+    </div>
+    <iframe id="docFrame" style="width:100%;height:70vh;border:1px solid var(--border2);border-radius:8px;background:#fff"></iframe>
+  </div>
+  <div class="card" style="margin-top:16px;padding:16px 18px">
+    <div style="font-size:14px;font-weight:800;margin-bottom:4px">💬 Comments</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:14px">Comments attach to a section and carry over across regenerated versions — anyone with this link can add one, no login needed.</div>
+    <div id="commentPanels">${DOC_SECTIONS.map((title,i)=>renderCommentSection(i,title)).join('')}</div>
+  </div>`;
+  // Set via the DOM property, not an HTML attribute, so nothing in the AI-generated
+  // markup needs entity-escaping to survive the round trip.
+  const frame=document.getElementById('docFrame');
+  if(frame)frame.srcdoc=v.html;
+}
+
+function renderCommentSection(i,title){
+  const list=(st.comments||[]).filter(c=>c.section===i).sort((a,b)=>a.createdAt-b.createdAt);
+  const open=openCommentSections.has(i);
+  return `<div style="border:1px solid var(--border2);border-radius:8px;padding:10px 12px;margin-bottom:8px">
+    <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="toggleCommentSection(${i})">
+      <span style="font-size:12px;font-weight:700">${i+1}. ${esc(title)}</span>
+      <span style="font-size:11px;color:var(--muted)">${list.length?list.length+' comment'+(list.length>1?'s':''):'No comments'} ${open?'▴':'▾'}</span>
+    </div>
+    <div id="csec-${i}" style="display:${open?'block':'none'};margin-top:10px">
+      ${list.map(c=>`<div style="background:var(--card2);border-radius:6px;padding:8px 10px;margin-bottom:6px">
+        <div style="font-size:11px;font-weight:700">${esc(c.author)} <span style="color:var(--muted);font-weight:400">· ${new Date(c.createdAt).toLocaleString()}</span></div>
+        <div style="font-size:12px;margin-top:3px;white-space:pre-wrap">${esc(c.text)}</div>
+      </div>`).join('')||'<div style="font-size:11px;color:var(--muted);margin-bottom:8px">Be the first to comment on this section.</div>'}
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <input id="cname-${i}" class="inp" placeholder="Your name" value="${esc(getCommenterName())}" style="max-width:140px;font-size:11px" oninput="try{localStorage.setItem('dh_commenter_name',this.value)}catch(e){}">
+        <input id="ctext-${i}" class="inp" placeholder="Add a comment…" style="flex:1;font-size:11px" onkeydown="if(event.key==='Enter')addComment(${i})">
+        <button class="btn btn-sm btn-p" onclick="addComment(${i})">Post</button>
+      </div>
+    </div>
+  </div>`;
+}
+function toggleCommentSection(i){
+  if(openCommentSections.has(i))openCommentSections.delete(i);else openCommentSections.add(i);
+  const panels=document.getElementById('commentPanels');
+  if(panels)panels.innerHTML=DOC_SECTIONS.map((t,idx)=>renderCommentSection(idx,t)).join('');
+}
+async function addComment(i){
+  const nameInp=document.getElementById('cname-'+i);
+  const textInp=document.getElementById('ctext-'+i);
+  const author=(nameInp&&nameInp.value||'').trim();
+  const text=(textInp&&textInp.value||'').trim();
+  if(!author){alert('Enter your name first.');nameInp&&nameInp.focus();return;}
+  if(!text)return;
+  try{localStorage.setItem('dh_commenter_name',author);}catch(e){/* */}
+  // Re-fetch the latest comments before appending — cheap guard against clobbering a
+  // concurrent commenter's post, since syncToDb is a full-row upsert with no server-side merge.
+  try{
+    const fresh=await sbLoad(st.dbId);
+    if(fresh&&fresh.state&&Array.isArray(fresh.state.comments))st.comments=fresh.state.comments;
+  }catch(e){/* */}
+  st.comments=[...(st.comments||[]),{id:uid()+uid(),section:i,author,text,createdAt:Date.now()}];
+  openCommentSections.add(i);
+  const panels=document.getElementById('commentPanels');
+  if(panels)panels.innerHTML=DOC_SECTIONS.map((t,idx)=>renderCommentSection(idx,t)).join('');
+  await syncToDb(st.submitted); // immediate — other viewers of this link should see it right away
+}
 
 // ── PRICING MODEL MULTI-SELECT ──────────────────────────────────────────────
 function togglePricingModel(k){
@@ -2379,6 +2561,12 @@ async function initApp(){
       if(rows&&rows[0]&&rows[0].state){
         st={...freshSt(),...rows[0].state,dbId:resumeId};
         saveState();
+        // ?view=doc[&v=N] — a shareable, reloadable link straight into the doc viewer
+        // (with per-section comments) instead of the wizard. See openDocViewer().
+        if(params.get('view')==='doc'){
+          renderDocViewer(Number(params.get('v'))||null);
+          return;
+        }
         document.getElementById('coInp').value=st.co||'';
         render();
         showToast('✓ Progress restored from link');
