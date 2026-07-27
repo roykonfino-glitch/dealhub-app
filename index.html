@@ -520,7 +520,17 @@ let showAdvUC=false;
 
 // ── SAVE & RESTORE ──────────────────────────────────────────────────────────
 function saveState(){
-  try{localStorage.setItem(SAVE_KEY,JSON.stringify({st,ts:Date.now()}));}catch(e){}
+  try{
+    // Persist a SLIM copy. The rendered HTML of each doc version (~35KB each) and lastDocHtml
+    // are fully derivable from `raw` via buildDocPage() (see verHtml), so we never store them —
+    // once a few versions exist they'd blow the ~5MB localStorage budget and this write would
+    // silently fail. skus can also be large; they're already session-only for DB resume.
+    const slim={...st,
+      docVersions:(st.docVersions||[]).map(v=>({id:v.id,versionNumber:v.versionNumber,raw:v.raw,createdAt:v.createdAt}))};
+    delete slim.lastDocHtml;
+    localStorage.setItem(SAVE_KEY,JSON.stringify({st:slim,ts:Date.now()}));
+    return true;
+  }catch(e){console.warn('Local save failed (likely storage quota):',e&&e.message);return false;}
 }
 function loadState(){
   try{
@@ -535,12 +545,13 @@ function loadState(){
 function clearSave(){localStorage.removeItem(SAVE_KEY);}
 
 function save(){
-  saveState();
+  const localOk=saveState();
   // Debounced Supabase sync — 2s after last keystroke
   clearTimeout(save._t);
   save._t=setTimeout(async ()=>{
-    const ok=await syncToDb(st.submitted);
-    showToast(ok?'✓ Saved to database':'✓ Saved locally');
+    const cloudOk=await syncToDb(st.submitted);
+    // Honest status: don't claim a cloud save when the round-trip failed.
+    showToast(cloudOk?'✓ Saved to cloud':(localOk?'💾 Saved on this device — cloud sync failed':'⚠ Could not save'));
   },2000);
 }
 
@@ -554,7 +565,10 @@ async function syncToDb(submitted){
   delete safe.docGenerating;
   delete safe.planLoading;
   delete safe.mmGenerating;
-  await sbUpsert({
+  // Rendered HTML is rebuilt from `raw` on load (verHtml), so keep it out of the DB payload too.
+  delete safe.lastDocHtml;
+  if(safe.docVersions)safe.docVersions=safe.docVersions.map(v=>({id:v.id,versionNumber:v.versionNumber,raw:v.raw,createdAt:v.createdAt}));
+  return await sbUpsert({
     id:st.dbId,
     company:st.co||'Unnamed',
     csm:st.csm||null,
@@ -2021,21 +2035,25 @@ SECTION INSTRUCTIONS:
 
   try{
     const stripFences=s=>s.replace(/^```[\w]*\r?\n?/,'').replace(/\r?\n?```\s*$/,'').trim();
+    const truncatedParts=[];
     const parseCall=(text,label)=>{
       let d;
       try{d=JSON.parse(text);}catch(pe){throw new Error(`Bad JSON (${label}): ${text.slice(0,150)}`);}
       if(d.error)throw new Error(typeof d.error==='string'?d.error:(d.error.message||JSON.stringify(d.error)));
+      // Backstop: if the model hit the token ceiling, the section is cut off mid-content.
+      // Flag it so the doc viewer can warn instead of silently shipping a half-written section.
+      if(d.stop_reason==='max_tokens')truncatedParts.push(label);
       return stripFences((d.content&&d.content[0]?d.content[0].text:'')||'');
     };
 
     // 3 independent calls — each covers ~2-3 sections. They don't depend on each other,
     // so fire them concurrently (≈35s) instead of sequentially (≈100s).
     st.docStatus='Generating all 8 sections…';render();
-    const p1=docCall({model:DOC_MODEL,max_tokens:3500,system:sys,messages:[{role:'user',content:`Generate the Stakeholders table followed by these 3 sections of the CPQ Business Process Discovery & Design Document:\n1. "Context & The Why"\n2. "Goals & Success Criteria"\n3. "Go-To-Market Structure"\n\nUse the exact section titles. No other titles. Only use information from the context.\n\nCONTEXT:\n${ctx}`}]},'Part 1');
+    const p1=docCall({model:DOC_MODEL,max_tokens:8000,system:sys,messages:[{role:'user',content:`Generate the Stakeholders table followed by these 3 sections of the CPQ Business Process Discovery & Design Document:\n1. "Context & The Why"\n2. "Goals & Success Criteria"\n3. "Go-To-Market Structure"\n\nUse the exact section titles. No other titles. Only use information from the context.\n\nCONTEXT:\n${ctx}`}]},'Part 1');
 
-    const p2=docCall({model:DOC_MODEL,max_tokens:3500,system:sys,messages:[{role:'user',content:`Generate these 3 sections of the CPQ Business Process Discovery & Design Document:\n4. "Current State: How It Works Today"\n5. "Products & Pricing"\n6. "DealHub Configuration Design"\n\nSection 5: include EVERY product from the SKU SAMPLE exactly — no omissions.\nSection 6: use EXACT product family names from the SKU data as question group IDs. Include full question tables.\nDo not invent any values.\n\nCONTEXT:\n${ctx}`}]},'Part 2');
+    const p2=docCall({model:DOC_MODEL,max_tokens:8000,system:sys,messages:[{role:'user',content:`Generate these 3 sections of the CPQ Business Process Discovery & Design Document:\n4. "Current State: How It Works Today"\n5. "Products & Pricing"\n6. "DealHub Configuration Design"\n\nSection 5: include EVERY product from the SKU SAMPLE exactly — no omissions.\nSection 6: use EXACT product family names from the SKU data as question group IDs. Include full question tables.\nDo not invent any values.\n\nCONTEXT:\n${ctx}`}]},'Part 2');
 
-    const p3=docCall({model:DOC_MODEL,max_tokens:3500,system:sys,messages:[{role:'user',content:`Generate these 2 sections of the CPQ Business Process Discovery & Design Document:\n7. "Approval Workflows"\n8. "Output Documents, DealRoom & Build Sequence"\n\nSection 7: use exact roles and thresholds from DISCOUNT MATRIX. If empty, flag as ACTION REQUIRED.\nSection 8: include a full 10-step build sequence table and a risks table.\nDo not invent any values.\n\nCONTEXT:\n${ctx}`}]},'Part 3');
+    const p3=docCall({model:DOC_MODEL,max_tokens:8000,system:sys,messages:[{role:'user',content:`Generate these 2 sections of the CPQ Business Process Discovery & Design Document:\n7. "Approval Workflows"\n8. "Output Documents, DealRoom & Build Sequence"\n\nSection 7: use exact roles and thresholds from DISCOUNT MATRIX. If empty, flag as ACTION REQUIRED.\nSection 8: include a full 10-step build sequence table and a risks table.\nDo not invent any values.\n\nCONTEXT:\n${ctx}`}]},'Part 3');
 
     const [text1,text2,text3]=await Promise.all([p1,p2,p3]);
     const c1=parseCall(text1,'Part 1');
@@ -2043,6 +2061,8 @@ SECTION INSTRUCTIONS:
     const c3=parseCall(text3,'Part 3');
     const docContent=c1+'\n'+c2+'\n'+c3;
     st.docGenerating=false;st.docError='';st.docStatus='';
+    st.docTruncated=truncatedParts.length?truncatedParts.slice():null;
+    if(st.docTruncated)showToast('⚠ '+truncatedParts.join(', ')+' may be cut off — regenerate to retry');
     // Append a new version — never overwrite. Every past draft stays reachable from the
     // version history list and from the doc viewer's version switcher.
     const verEntry={id:uid()+uid(),versionNumber:(st.docVersions?st.docVersions.length:0)+1,
@@ -2066,7 +2086,7 @@ function openDocViewer(versionNumber){
 }
 
 function downloadDoc(htmlOverride){
-  const html=htmlOverride||st.lastDocHtml;
+  const html=htmlOverride||st.lastDocHtml||(st.lastDocRaw?buildDocPage(st.lastDocRaw,false):'');
   if(!html){alert('Generate the design document first.');return;}
   const co=(st.co||'Client').replace(/\s+/g,'_');
   const b=new Blob([html],{type:'text/html'});
@@ -2077,7 +2097,7 @@ function downloadDoc(htmlOverride){
 }
 
 function downloadDocPDF(htmlOverride,btnId){
-  const html=htmlOverride||st.lastDocHtml;
+  const html=htmlOverride||st.lastDocHtml||(st.lastDocRaw?buildDocPage(st.lastDocRaw,false):'');
   if(!html){alert('Generate the design document first.');return;}
   // Native browser print → "Save as PDF". Reliable, selectable text, correct A4 pagination.
   // The previous html2canvas raster path produced BLANK pages: a ~10,000px-tall doc at
@@ -2106,16 +2126,20 @@ function getDocVersionsList(){
   // Legacy discoveries saved before docVersions existed only have lastDocHtml — synthesize
   // a single v1 entry from it so the viewer still works for old links.
   if(st.docVersions&&st.docVersions.length)return st.docVersions;
-  return st.lastDocHtml?[{id:'legacy',versionNumber:1,raw:st.lastDocRaw,html:st.lastDocHtml,createdAt:Date.now()}]:[];
+  return (st.lastDocRaw||st.lastDocHtml)?[{id:'legacy',versionNumber:1,raw:st.lastDocRaw,html:st.lastDocHtml||'',createdAt:Date.now()}]:[];
 }
 function resolveDocVersion(versionNumber){
   const list=getDocVersionsList();
   if(!list.length)return null;
   return (versionNumber&&list.find(v=>v.versionNumber===versionNumber))||list[list.length-1];
 }
+// Rendered HTML is fully derivable from `raw` via buildDocPage(), so we don't persist it
+// (see saveState). verHtml() returns the stored html if present (in-memory this session) or
+// rebuilds it from raw (after a reload / DB resume).
+function verHtml(v){ return v ? (v.html || (v.raw ? buildDocPage(v.raw,false) : '')) : ''; }
 function docVersionHtml(){
   const v=resolveDocVersion(docViewerVersion);
-  return v?v.html:st.lastDocHtml;
+  return v?verHtml(v):(st.lastDocHtml||(st.lastDocRaw?buildDocPage(st.lastDocRaw,false):''));
 }
 function getCommenterName(){try{return localStorage.getItem('dh_commenter_name')||''}catch(e){return '';}}
 
@@ -2144,7 +2168,7 @@ function renderDocViewer(versionNumber){
   }
   docViewerVersion=v.versionNumber;
   const prevV=list.find(x=>x.versionNumber===v.versionNumber-1);
-  docViewerChangedSections=prevV?diffSectionsChanged(prevV.html,v.html):new Set();
+  docViewerChangedSections=prevV?diffSectionsChanged(verHtml(prevV),verHtml(v)):new Set();
   const co=st.co||'Client';
   const backUrl=`${window.location.origin}${window.location.pathname}?id=${st.dbId}`;
   // Keep the URL's ?v= in sync so refreshing/sharing stays on the version being viewed.
@@ -2156,6 +2180,7 @@ function renderDocViewer(versionNumber){
       ${list.slice().reverse().map(x=>`<option value="${x.versionNumber}"${x.versionNumber===v.versionNumber?' selected':''}>v${x.versionNumber} · ${new Date(x.createdAt).toLocaleDateString()}</option>`).join('')}
     </select>`:`v${v.versionNumber}`;
   const changedLine=docViewerChangedSections.size?`<div style="font-size:11px;color:#f97316;margin-top:2px">● Changed since v${v.versionNumber-1}: ${[...docViewerChangedSections].sort((x,y)=>x-y).map(i=>esc(DOC_SECTIONS[i])).join(', ')}</div>`:'';
+  const truncLine=(st.docTruncated&&st.docTruncated.length&&v.versionNumber===(list.length))?`<div style="font-size:11px;color:#dc2626;margin-top:2px">⚠ ${esc(st.docTruncated.join(', '))} may be truncated — regenerate to retry with more room.</div>`:'';
 
   el.innerHTML=`<div class="card" style="padding:16px 18px">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
@@ -2163,6 +2188,7 @@ function renderDocViewer(versionNumber){
         <div style="font-size:15px;font-weight:800">${esc(co)} — Design Document</div>
         <div style="font-size:11px;color:var(--muted);margin-top:2px">Viewing ${switcher}</div>
         ${changedLine}
+        ${truncLine}
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         <a href="${esc(backUrl)}" class="btn btn-sm" style="text-decoration:none">← Back to form</a>
@@ -2181,7 +2207,7 @@ function renderDocViewer(versionNumber){
   // Set via the DOM property, not an HTML attribute, so nothing in the AI-generated
   // markup needs entity-escaping to survive the round trip.
   const frame=document.getElementById('docFrame');
-  if(frame)frame.srcdoc=v.html;
+  if(frame)frame.srcdoc=verHtml(v);
 }
 
 // Sections that differ from the previous version — set by renderDocViewer() via
