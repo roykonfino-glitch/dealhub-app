@@ -1994,7 +1994,7 @@ SECTION INSTRUCTIONS:
 
 8. Output Documents, DealRoom & Build Sequence — <h2>Current Documents Sent to Customers</h2> bullets from currentQuote + outputDocFiles. <h2>Future State — DealHub Output Document</h2> paragraph describing the DealHub Order Form (its canonical shape: a 6-part body, native pricing table, and signature block) and how it replaces current docs. <h2>DealRoom</h2>: if brandUrl or brandAnalysis provided, mention that the DealRoom is assembled directly from that site's brand and copy; otherwise note "DealRoom brand setup TBD — a company URL is needed before build so brand/copy can be pulled in automatically". <h2>Recommended Build Sequence</h2> table: Step # | Task | Owner (DH/Client) | Notes — 10 steps: 1-CRM integration → 2-Product catalog import → 3-[GQ] config → 4-Product QGs (one step per family, using exact family names) → 5-[Terms_and_Conditions] → then [Billing_and_Terms] → [Billing_Contact] → Feature QGs if applicable → Approval workflows & validation rules → Output doc templates → DealRoom → UAT → Go-live. Frame step 1-4 as customizing the standard DealHub default SaaS baseline, not building from a blank slate. End with <h2>Risks & Open Questions</h2> table: Risk / Flag | Detail | Recommended Action — 4–6 rows grounded in real gaps from the context.`;
 
-  const DOC_MODEL='claude-haiku-4-5-20251001';
+  const DOC_MODEL='claude-sonnet-4-6'; // flagship deliverable — use the stronger model, not Haiku
   const RETRY_WAIT=65000; // 65s clears the 1-min rate limit window
 
   async function docCall(body, label){
@@ -2028,16 +2028,16 @@ SECTION INSTRUCTIONS:
       return stripFences((d.content&&d.content[0]?d.content[0].text:'')||'');
     };
 
-    // 3 sequential calls — each covers ~2-3 sections to stay within token limits
-    st.docStatus='Part 1 of 3 — Context, Goals & GTM…';render();
-    const text1=await docCall({model:DOC_MODEL,max_tokens:3500,system:sys,messages:[{role:'user',content:`Generate the Stakeholders table followed by these 3 sections of the CPQ Business Process Discovery & Design Document:\n1. "Context & The Why"\n2. "Goals & Success Criteria"\n3. "Go-To-Market Structure"\n\nUse the exact section titles. No other titles. Only use information from the context.\n\nCONTEXT:\n${ctx}`}]},'Part 1');
+    // 3 independent calls — each covers ~2-3 sections. They don't depend on each other,
+    // so fire them concurrently (≈35s) instead of sequentially (≈100s).
+    st.docStatus='Generating all 8 sections…';render();
+    const p1=docCall({model:DOC_MODEL,max_tokens:3500,system:sys,messages:[{role:'user',content:`Generate the Stakeholders table followed by these 3 sections of the CPQ Business Process Discovery & Design Document:\n1. "Context & The Why"\n2. "Goals & Success Criteria"\n3. "Go-To-Market Structure"\n\nUse the exact section titles. No other titles. Only use information from the context.\n\nCONTEXT:\n${ctx}`}]},'Part 1');
 
-    st.docStatus='Part 2 of 3 — Current State, Products & Config…';render();
-    const text2=await docCall({model:DOC_MODEL,max_tokens:3500,system:sys,messages:[{role:'user',content:`Generate these 3 sections of the CPQ Business Process Discovery & Design Document:\n4. "Current State: How It Works Today"\n5. "Products & Pricing"\n6. "DealHub Configuration Design"\n\nSection 5: include EVERY product from the SKU SAMPLE exactly — no omissions.\nSection 6: use EXACT product family names from the SKU data as question group IDs. Include full question tables.\nDo not invent any values.\n\nCONTEXT:\n${ctx}`}]},'Part 2');
+    const p2=docCall({model:DOC_MODEL,max_tokens:3500,system:sys,messages:[{role:'user',content:`Generate these 3 sections of the CPQ Business Process Discovery & Design Document:\n4. "Current State: How It Works Today"\n5. "Products & Pricing"\n6. "DealHub Configuration Design"\n\nSection 5: include EVERY product from the SKU SAMPLE exactly — no omissions.\nSection 6: use EXACT product family names from the SKU data as question group IDs. Include full question tables.\nDo not invent any values.\n\nCONTEXT:\n${ctx}`}]},'Part 2');
 
-    st.docStatus='Part 3 of 3 — Approvals, Output Docs & Build Plan…';render();
-    const text3=await docCall({model:DOC_MODEL,max_tokens:3500,system:sys,messages:[{role:'user',content:`Generate these 2 sections of the CPQ Business Process Discovery & Design Document:\n7. "Approval Workflows"\n8. "Output Documents, DealRoom & Build Sequence"\n\nSection 7: use exact roles and thresholds from DISCOUNT MATRIX. If empty, flag as ACTION REQUIRED.\nSection 8: include a full 10-step build sequence table and a risks table.\nDo not invent any values.\n\nCONTEXT:\n${ctx}`}]},'Part 3');
+    const p3=docCall({model:DOC_MODEL,max_tokens:3500,system:sys,messages:[{role:'user',content:`Generate these 2 sections of the CPQ Business Process Discovery & Design Document:\n7. "Approval Workflows"\n8. "Output Documents, DealRoom & Build Sequence"\n\nSection 7: use exact roles and thresholds from DISCOUNT MATRIX. If empty, flag as ACTION REQUIRED.\nSection 8: include a full 10-step build sequence table and a risks table.\nDo not invent any values.\n\nCONTEXT:\n${ctx}`}]},'Part 3');
 
+    const [text1,text2,text3]=await Promise.all([p1,p2,p3]);
     const c1=parseCall(text1,'Part 1');
     const c2=parseCall(text2,'Part 2');
     const c3=parseCall(text3,'Part 3');
@@ -2079,38 +2079,20 @@ function downloadDoc(htmlOverride){
 function downloadDocPDF(htmlOverride,btnId){
   const html=htmlOverride||st.lastDocHtml;
   if(!html){alert('Generate the design document first.');return;}
-  const btn=document.getElementById(btnId||'pdfBtn');
-  const origHtml=btn?btn.innerHTML:'';
-  if(btn){btn.innerHTML='⏳ Building PDF…';btn.disabled=true;}
-
-  // Parse the full HTML doc to extract styles + body content
-  const parsed=new DOMParser().parseFromString(html,'text/html');
-  const css=Array.from(parsed.querySelectorAll('style')).map(s=>s.textContent).join('\n');
-
-  const styleEl=document.createElement('style');
-  styleEl.textContent=css;
-  document.head.appendChild(styleEl);
-
-  const container=document.createElement('div');
-  container.style.cssText='position:absolute;left:-9999px;top:0;width:794px;background:#fff;color:#1a2332';
-  container.innerHTML=parsed.body.innerHTML;
-  document.body.appendChild(container);
-
-  const co=(st.co||'Client').replace(/\s+/g,'_');
-  const filename=`DealHub_DiscoveryDoc_${co}_${new Date().toISOString().slice(0,10)}.pdf`;
-
-  const cleanup=()=>{
-    document.body.removeChild(container);
-    document.head.removeChild(styleEl);
-    if(btn){btn.innerHTML=origHtml;btn.disabled=false;}
-  };
-
-  html2pdf().set({
-    margin:0,filename,
-    image:{type:'jpeg',quality:0.98},
-    html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},
-    jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
-  }).from(container).save().then(cleanup).catch(err=>{cleanup();alert('PDF error: '+err.message);});
+  // Native browser print → "Save as PDF". Reliable, selectable text, correct A4 pagination.
+  // The previous html2canvas raster path produced BLANK pages: a ~10,000px-tall doc at
+  // scale 2 exceeds the browser's max canvas size, so html2canvas returned an empty canvas
+  // and jsPDF emitted a single blank page. The doc HTML (buildDocPage) already carries
+  // @page/A4 print CSS, so we just open it and let the browser render + print it natively.
+  const w=window.open('','_blank');
+  if(!w){alert('Please allow pop-ups for this site, then click PDF again to export.');return;}
+  w.document.write(html);
+  w.document.close();
+  let printed=false;
+  const doPrint=()=>{if(printed)return;printed=true;try{w.focus();w.print();}catch(e){}};
+  // Print once fonts + layout settle; fallback covers onload already having fired.
+  w.onload=()=>setTimeout(doPrint,400);
+  setTimeout(doPrint,1200);
 }
 
 // ── DOC VIEWER + PER-SECTION COMMENTS ───────────────────────────────────────
@@ -2670,6 +2652,11 @@ async function initApp(){
   const params=new URLSearchParams(window.location.search);
   const resumeId=params.get('id');
 
+  // Snapshot this device's saved state BEFORE anything renders. render() auto-persists the
+  // current (here: fresh/empty) state via save(), so calling it first would clobber a
+  // previously generated doc in localStorage — the fallback below reads this snapshot instead.
+  const localSnapshot=(()=>{try{const r=localStorage.getItem(SAVE_KEY);return r?(JSON.parse(r).st||null):null;}catch(e){return null;}})();
+
   if(resumeId){
     // Show loading state first, then fetch
     render(); // renders step 0 of fresh state while loading
@@ -2695,6 +2682,21 @@ async function initApp(){
         return;
       }
     }catch(e){console.error('Resume error:',e);}
+    // DB unreachable or record missing — fall back to THIS device's saved snapshot so a
+    // generated doc is never lost just because the cloud round-trip failed (offline, CORS,
+    // key issue). Recipients on another device still need the DB; the owner's copy survives.
+    if(localSnapshot&&((localSnapshot.docVersions&&localSnapshot.docVersions.length)||localSnapshot.co)){
+      st={...freshSt(),...localSnapshot};
+      if(params.get('view')==='doc'&&getDocVersionsList().length){
+        renderDocViewer(Number(params.get('v'))||null);
+        showToast('Loaded from this device');
+        return;
+      }
+      document.getElementById('coInp').value=st.co||'';
+      render();
+      showToast('Loaded from this device (cloud unavailable)');
+      return;
+    }
     showToast('Could not load saved progress');
     render();
     return;
